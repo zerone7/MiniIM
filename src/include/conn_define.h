@@ -11,6 +11,7 @@
 #define CONTACT_SERVER_PORT	31416
 #define STATUS_SERVER_IP	31417
 #define MESSAGE_SERVER_PORT	31418
+#define CLIENT_TIMEOUT		120
 
 #define container_of(ptr, type, member) ({	\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
