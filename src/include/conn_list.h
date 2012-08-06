@@ -64,4 +64,13 @@ static inline int list_empty(const struct list_head *head)
 #define list_entry(ptr, type, member)	\
 	container_of(ptr, type, member)
 
+/**
+ * list_first_entry - get the first element of a list
+ * @ptr:	the &struct list_head pointer.
+ * @type:	the type of the struct this is embedded in.
+ * @member:	the name of the list_struct within the struct.
+ */
+#define list_first_entry(ptr, type, member)	\
+	list_entry((ptr)->next, type, member)
+
 #endif
