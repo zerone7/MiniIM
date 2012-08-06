@@ -1,0 +1,38 @@
+#include "conn_timer.h"
+
+struct conn_timer timer;
+
+/* initialize the timer struct */
+void timer_init(struct conn_timer *timer)
+{
+	int i;
+	struct itimerval val;
+	struct sigaction action;
+
+	/* initialize list head */
+	assert(timer);
+	timer->current = 0;
+	timer->max_slots = CLIENT_TIMEOUT + 1;
+	for (i = 0; i < timer->max_slots; i++) {
+		INIT_LIST_HEAD(&timer->timer_slots[i]);
+	}
+
+	/* register signal hanbler function */
+	action.sa_handler = every_second_func;
+	action.sa_flags = 0;
+	sigemptyset(&action.sa_mask);
+	sigaction(SIGALARM, &action, NULL);
+
+	/* initialize timer */
+	val.it_value.tv_sec = 1;
+	val.it_value.tv_usec = 0;
+	val.it_interval = val.it_value;
+	setitimer(ITIMER_REAL, &val, NULL);
+}
+
+/* this function will be called every second */
+void every_second_func(void)
+{
+	timer_tick(&timer);
+	/* TODO: need to be implemented */
+}
