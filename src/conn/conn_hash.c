@@ -1,4 +1,4 @@
-#include "hash_set.h"
+#include "conn_hash.h"
 
 /* function prototypes */
 static int __hset_insert_node(hash_set_t *h, struct chain_node *n);
