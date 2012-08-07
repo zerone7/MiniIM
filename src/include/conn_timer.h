@@ -14,6 +14,18 @@ struct connection {
 	int sfd;
 };
 
+/* uin to *conn hash map entry */
+struct uin_entry {
+	uint32_t uin;
+	struct connection *conn;
+};
+
+/* socket fd to *conn hash map entry */
+struct fd_entry {
+	int fd;
+	struct connection *conn;
+};
+
 /* timer structure used for client timeout */
 struct conn_timer {
 	struct list_head timer_slots[CLIENT_TIMEOUT + 1];
