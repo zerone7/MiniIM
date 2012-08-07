@@ -100,8 +100,18 @@ int conn_server_init(struct conn_server *server)
 
 	memset(server, 0, sizeof(struct conn_server));
 	timer_init(&server->timer);
+
+	/* initialize global viariable timer, which is used by signal handler */
 	timer = &server->timer;
 	INIT_LIST_HEAD(&server->keep_alive_list);
+
+	/* initialize uin to connection hash map, set uin to be key */
+	HSET_INIT(&server->uin_conn_map, sizeof(struct uin_entry));
+	__set_key_size(&server->uin_conn_map, sizeof(uint32_t));
+
+	/* initialize socket fd to connection hash map, set socket fd to be key */
+	HSET_INIT(&server->fd_conn_map, sizeof(struct fd_entry));
+	__set_key_size(&server->fd_conn_map, sizeof(int));
 }
 
 /* prepare the socket */

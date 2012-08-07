@@ -4,12 +4,15 @@
 #include <stdint.h>
 #include <sys/epoll.h>
 #include "conn_list.h"
+#include "conn_hash.h"
 #include "conn_timer.h"
 
 struct conn_server {
 	struct conn_timer timer;	/* timer struct */
 	struct list_head keep_alive_list;	/* keep alive packet queue */
 	struct epoll_event *events;
+	hash_set_t uin_conn_map;
+	hash_set_t fd_conn_map;
 	uint32_t max_events;	/* max events we can monitor */
 	int sfd;		/* listen socket fd */
 	int efd;		/* epoll monitor fd */
