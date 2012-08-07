@@ -1,6 +1,7 @@
 #ifndef _CONN_TIMER_H_
 #define _CONN_TIMER_H_
 
+#include <stdint.h>
 #include "conn_define.h"
 #include "conn_list.h"
 #include "conn_allocator.h"
@@ -59,7 +60,7 @@ static inline void timer_move(struct conn_timer *timer, struct connection *conn)
 }
 
 void timer_init(struct conn_timer *timer);
-void every_second_func(void);
+void every_second_func(int signo);
 extern struct conn_timer *timer;
 
 #endif

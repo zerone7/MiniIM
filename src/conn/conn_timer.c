@@ -1,6 +1,9 @@
+#include <unistd.h>
+#include <signal.h>
+#include <sys/time.h>
 #include "conn_timer.h"
 
-struct conn_timer timer;
+struct conn_timer *timer;
 
 /* initialize the timer struct */
 void timer_init(struct conn_timer *timer)
@@ -21,7 +24,7 @@ void timer_init(struct conn_timer *timer)
 	action.sa_handler = every_second_func;
 	action.sa_flags = 0;
 	sigemptyset(&action.sa_mask);
-	sigaction(SIGALARM, &action, NULL);
+	sigaction(SIGALRM, &action, NULL);
 
 	/* initialize timer */
 	val.it_value.tv_sec = 1;
@@ -31,8 +34,8 @@ void timer_init(struct conn_timer *timer)
 }
 
 /* this function will be called every second */
-void every_second_func(void)
+void every_second_func(int signo)
 {
-	timer_tick(&timer);
+	timer_tick(timer);
 	/* TODO: need to be implemented */
 }

@@ -52,7 +52,7 @@ static inline void* allocator_malloc(struct allocator *a)
 		ret = list_first_entry(&a->free_list, struct __item, list);
 		list_del(&ret->list);
 	} else {
-		ret = malloc(a->size);
+		ret = malloc(a->element_size);
 	}
 	return ret;
 }
