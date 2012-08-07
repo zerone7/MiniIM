@@ -114,6 +114,7 @@ int setup_epoll(struct conn_server *server, uint32_t max_events)
 	/* events buffer */
 	server->max_events = max_events;
 	server->events = calloc(max_events, sizeof(struct epoll_event));
+	return 0;
 }
 
 /* the main event loop */
