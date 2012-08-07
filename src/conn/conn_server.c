@@ -56,6 +56,44 @@ static int create_and_bind(uint16_t port)
 	return sfd;
 }
 
+/* accept the connection */
+static int accept_handler(struct conn_server *server)
+{
+	struct epoll_event event;
+	while (1) {
+		struct sockaddr in_addr;
+		int infd;
+
+		if ((infd = accept(server->sfd, NULL, NULL)) < 0) {
+			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+				/* we have processed all incoming connections */
+				return 0;
+			} else {
+				log_err("accept connection error\n");
+				return -1;
+			}
+		}
+
+		if (set_nonblocking(infd) < 0) {
+			log_err("set infd to nonblockint mode error\n");
+			return -1;
+		}
+
+		event.data.fd = infd;
+		event.events = EPOLLIN | EPOLLET;
+		if (epoll_ctl(server->efd, EPOLL_CTL_ADD, infd, &event) < 0) {
+			log_err("add fd to monitor error\n");
+			return -1;
+		}
+		printf("accept connection\n");
+	}
+}
+
+/* read data from the socket */
+static int read_handler(struct conn_server *server, int infd)
+{
+}
+
 int conn_server_init(struct conn_server *server)
 {
 	assert(server);
@@ -138,6 +176,7 @@ int epoll_loop(struct conn_server *server)
 				continue;
 			} else if (server->sfd == events[i].data.fd) {
 				/* one or more incoming connections */
+				accept_handler(server);
 			} else {
 				/* we have data on the fd waiting to be read */
 			}
@@ -153,7 +192,7 @@ int main(int argc, char *argv[])
 {
 	struct conn_server server;
 
-	LOG_INIT("conn_log");
+	LOG_INIT("log_conn");
 	conn_server_init(&server);
 
 	/* TODO: connect to user server */
