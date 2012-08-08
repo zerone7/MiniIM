@@ -41,47 +41,36 @@ static inline void packet_init(struct list_packet *packet)
 	INIT_LIST_HEAD(&packet->list);
 }
 
-/* convert header from network byte order to host byte order */
-static inline void convert_header(struct list_packet *packet)
-{
-	assert(packet);
-	struct packet *p = &packet->packet;
-	p->len = ntohs(p->len);
-	p->ver = ntohs(p->ver);
-	p->cmd = ntohs(p->cmd);
-	p->uin = ntohl(p->uin);
-}
-
 /* get length of the packet */
-static inline uint16_t get_length(struct list_packet *packet)
+static inline uint16_t get_length_host(struct list_packet *packet)
 {
 	assert(packet);
-	return packet->packet.len;
+	return ntohs(packet->packet.len);
 }
 
 /* get version of the protocol */
-static inline uint16_t get_version(struct list_packet *packet)
+static inline uint16_t get_version_host(struct list_packet *packet)
 {
 	assert(packet);
-	return packet->packet.ver;
+	return ntohs(packet->packet.ver);
 }
 
 /* get command of the packet */
-static inline uint16_t get_command(struct list_packet *packet)
+static inline uint16_t get_command_host(struct list_packet *packet)
 {
 	assert(packet);
-	return packet->packet.cmd;
+	return ntohs(packet->packet.cmd);
 }
 
 /* get uin of the packet */
-static inline uint32_t get_uin(struct list_packet *packet)
+static inline uint32_t get_uin_host(struct list_packet *packet)
 {
 	assert(packet);
-	return packet->packet.uin;
+	return ntohl(packet->packet.uin);
 }
 
 /* get parameters of the command */
-static inline uint8_t* get_parameters(struct list_packet *packet)
+static inline uint8_t* get_parameters_network(struct list_packet *packet)
 {
 	assert(packet);
 	return packet->packet.params;

@@ -7,7 +7,7 @@
 /* client packet handler */
 int cmd_packet_handler(struct conn_server *server, struct list_packet *packet)
 {
-	uint16_t command = ntohs(get_command(packet));
+	uint16_t command = get_command_host(packet);
 	switch (command) {
 	case CMD_KEEP_ALIVE:
 		cmd_keep_alive(server, packet);
@@ -65,7 +65,7 @@ int cmd_message(struct conn_server *server, struct list_packet *packet)
 /* backend server packet handler */
 int srv_packet_handler(struct conn_server *server, struct list_packet *packet)
 {
-	uint16_t command = ntohs(get_command(packet));
+	uint16_t command = get_command_host(packet);
 	switch (command) {
 	case SRV_ERROR:
 		srv_error(server, packet);
