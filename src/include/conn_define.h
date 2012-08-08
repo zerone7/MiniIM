@@ -14,7 +14,6 @@
 #define CONN_SERVER_PORT	27182
 #define MAX_EPOLL_EVENTS	10240
 #define CLIENT_TIMEOUT		120
-#define MAX_PACKET_SIZE		5018
 
 #define container_of(ptr, type, member) ({	\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\

@@ -124,7 +124,7 @@ static int read_handler(struct conn_server *server, int infd)
 		}
 
 		uint16_t length = ntohs(*(uint16_t *)buf);
-		if (length > MAX_PACKET_SIZE) {
+		if (length > MAX_PACKET_LEN) {
 			log_err("length field is too big\n");
 			goto read_fail;
 		}
@@ -144,7 +144,7 @@ static int read_handler(struct conn_server *server, int infd)
 
 		/* add packet to conn's receive packet list */
 		struct connection *conn = ((struct fd_entry *)it.data)->conn;
-		struct conn_packet_list *packet =
+		struct list_packet *packet =
 			allocator_malloc(&server->packet_allocator);
 		packet_init(packet);
 		memcpy(&packet->packet, buf, length);
@@ -169,8 +169,7 @@ int conn_server_init(struct conn_server *server)
 
 	memset(server, 0, sizeof(struct conn_server));
 	timer_init(&server->timer);
-	allocator_init(&server->packet_allocator,
-			sizeof(struct conn_packet_list) + MAX_PACKET_SIZE);
+	allocator_init(&server->packet_allocator, LIST_PACKET_SIZE);
 	allocator_init(&server->conn_allocator, sizeof(struct connection));
 
 	/* initialize global viariable timer, which is used by signal handler */
