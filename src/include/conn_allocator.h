@@ -27,6 +27,7 @@ struct __item {
 static inline allocator_init(struct allocator *a, size_t size)
 {
 	assert(a && size >= sizeof(struct __item));
+	INIT_LIST_HEAD(&a->free_list);
 	a->element_size = size;
 }
 
