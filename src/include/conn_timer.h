@@ -7,12 +7,17 @@
 #include "conn_list.h"
 #include "conn_allocator.h"
 
+#define LOGIN_OK_CONNECTION		1
+#define LOGIN_UNCOMPLETE_CONNECTION	2
+#define LOGIN_ERROR_CONNECTION		3
+
 /* connection structure for each connection */
 struct connection {
 	struct list_head timer_list;
 	struct list_head recv_packet_list;
 	uint32_t uin;
 	int sfd;
+	uint8_t type;
 };
 
 /* uin to *conn hash map entry */
