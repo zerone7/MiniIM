@@ -12,6 +12,8 @@
 #include "conn_define.h"
 #include "conn_log.h"
 #include "conn_server.h"
+#include "conn_packet.h"
+#include "conn_connection.h"
 
 /* set socket to non blocking */
 static int set_nonblocking(int sfd)
@@ -100,6 +102,9 @@ int conn_server_init(struct conn_server *server)
 
 	memset(server, 0, sizeof(struct conn_server));
 	timer_init(&server->timer);
+	allocator_init(&server->packet_allocator,
+			sizeof(struct conn_packet_list) + MAX_PACKET_SIZE);
+	allocator_init(&server->conn_allocator, sizeof(struct connection));
 
 	/* initialize global viariable timer, which is used by signal handler */
 	timer = &server->timer;

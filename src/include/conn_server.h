@@ -6,10 +6,13 @@
 #include "conn_list.h"
 #include "conn_hash.h"
 #include "conn_timer.h"
+#include "conn_allocator.h"
 
 struct conn_server {
 	struct conn_timer timer;	/* timer struct */
 	struct list_head keep_alive_list;	/* keep alive packet queue */
+	struct allocator packet_allocator;
+	struct allocator conn_allocator;
 	struct epoll_event *events;
 	hash_set_t uin_conn_map;
 	hash_set_t fd_conn_map;
