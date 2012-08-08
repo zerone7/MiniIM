@@ -15,8 +15,10 @@
 struct connection {
 	struct list_head timer_list;
 	struct list_head recv_packet_list;
+	struct list_head send_packet_list;
 	uint32_t uin;
 	int sfd;
+	uint16_t expect_bytes;
 	uint8_t type;
 };
 
