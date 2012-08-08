@@ -87,13 +87,80 @@ static int accept_handler(struct conn_server *server)
 			log_err("add fd to monitor error\n");
 			return -1;
 		}
-		printf("accept connection\n");
+
+		struct connection *conn = allocator_malloc(&server->conn_allocator);
+		conn_init(conn);
+		conn->sfd = infd;
+		struct fd_entry fd_conn = {infd, conn};
+		hset_insert(&server->fd_conn_map, &fd_conn);
+		timer_add(&server->timer, conn);
 	}
 }
 
 /* read data from the socket */
 static int read_handler(struct conn_server *server, int infd)
 {
+	int done = 0;
+	ssize_t count;
+	char buf[8192];
+
+	while (1) {
+		memset(buf, 0, sizeof(buf));
+		if ((count = read(infd, buf, sizeof(buf))) < 0) {
+			if (errno != EAGAIN) {
+				log_err("read data error\n");
+				goto read_fail;
+			}
+			goto read_success;
+		} else if (count == 0) {
+			/* End of file, The remote has closed the connection */
+			goto read_fail;
+		}
+
+		/* read data success */
+		if (count < 2) {
+			log_alert("we only read 1 byte here, need to hanble this situation\n");
+			goto read_fail;
+		}
+
+		uint16_t length = ntohs(*(uint16_t *)buf);
+		if (length > MAX_PACKET_SIZE) {
+			log_err("length field is too big\n");
+			goto read_fail;
+		}
+
+		if (length != count) {
+			log_alert("read packet uncomplete\n");
+			goto read_fail;
+		}
+
+		/* use fd to find connection */
+		iterator_t it;
+		hset_find(&server->fd_conn_map, &infd, &it);
+		if (!it.data) {
+			log_err("can not find connection\n");
+			goto read_fail;
+		}
+
+		/* add packet to conn's receive packet list */
+		struct connection *conn = ((struct fd_entry *)it.data)->conn;
+		struct conn_packet_list *packet =
+			allocator_malloc(&server->packet_allocator);
+		INIT_LIST_HEAD(&packet->list);
+		memcpy(&packet->packet, buf, length);
+		list_add_tail(&packet->list, &conn->recv_packet_list);
+		continue;
+
+read_fail:
+		done = 1;
+read_success:
+		break;
+	}
+
+	if (done) {
+		/* closed connection */
+		printf("Closed connection on descriptor %d\n", infd);
+	}
 }
 
 int conn_server_init(struct conn_server *server)
@@ -194,6 +261,7 @@ int epoll_loop(struct conn_server *server)
 				accept_handler(server);
 			} else {
 				/* we have data on the fd waiting to be read */
+				read_handler(server, events[i].data.fd);
 			}
 		}
 	}
