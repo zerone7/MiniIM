@@ -3,6 +3,8 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
+#include <arpa/inet.h>
 #include "conn_list.h"
 
 /*
@@ -22,6 +24,24 @@ struct conn_packet_list {
 	struct list_head list;
 	struct conn_packet packet;
 };
+
+/* init the packet */
+static inline void packet_init(struct conn_packet_list *packet)
+{
+	assert(packet);
+	memset(packet, 0, sizeof(struct conn_packet_list) + MAX_PACKET_SIZE);
+}
+
+/* convert header from network byte order to host byte order */
+static inline void convert_header(struct conn_packet_list *packet)
+{
+	assert(packet);
+	struct conn_packet *p = &packet->packet;
+	p->length = ntohs(p->length);
+	p->version = ntohs(p->version);
+	p->command = ntohs(p->command);
+	p->uin = ntohl(p->uin);
+}
 
 /* get length of the packet */
 static inline uint16_t get_length(struct conn_packet *packet)

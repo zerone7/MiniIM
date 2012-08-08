@@ -2,6 +2,7 @@
 #define _CONN_CONNECTION_H_
 
 #include <stdint.h>
+#include <string.h>
 #include "conn_list.h"
 
 #define NOT_LOGIN_CONNECTION		1
@@ -31,5 +32,15 @@ struct fd_entry {
 	int fd;
 	struct connection *conn;
 };
+
+static inline void conn_init(struct connection *conn)
+{
+	assert(conn);
+	memset(conn, 0, sizeof(struct connection));
+	INIT_LIST_HEAD(&conn->timer_list);
+	INIT_LIST_HEAD(&conn->recv_packet_list);
+	INIT_LIST_HEAD(&conn->send_packet_list);
+	conn->type = NOT_LOGIN_CONNECTION;
+}
 
 #endif
