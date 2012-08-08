@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <signal.h>
 #include <arpa/inet.h>
 #include "protocol.h"
 #include "conn_list.h"
@@ -15,6 +16,22 @@ struct list_packet {
 	struct list_head list;
 	struct packet packet;
 };
+
+struct conn_server;
+
+/* client packet handler */
+int cmd_packet_handler(struct conn_server *server, struct list_packet *packet);
+int cmd_keep_alive(struct conn_server *server, struct list_packet *packet);
+int cmd_logout(struct conn_server *server, struct list_packet *packet);
+int cmd_user(struct conn_server *server, struct list_packet *packet);
+int cmd_contact(struct conn_server *server, struct list_packet *packet);
+int cmd_message(struct conn_server *server, struct list_packet *packet);
+
+/* backend server packet handler */
+int srv_packet_handler(struct conn_server *server, struct list_packet *packet);
+int srv_error(struct conn_server *server, struct list_packet *packet);
+int srv_login_ok(struct conn_server *server, struct list_packet *packet);
+int srv_other_packet(struct conn_server *server, struct list_packet *packet);
 
 /* init the packet */
 static inline void packet_init(struct list_packet *packet)
@@ -70,20 +87,20 @@ static inline uint8_t* get_parameters(struct list_packet *packet)
 	return packet->packet.params;
 }
 
-struct conn_server;
+static inline void add_keep_alive_packet(struct list_head *keep_alive_list,
+		struct list_packet *packet)
+{
+	sigset_t mask, oldmask;
 
-/* client packet handler */
-int cmd_packet_handler(struct conn_server *server, struct list_packet *packet);
-int cmd_keep_alive(struct conn_server *server, struct list_packet *packet);
-int cmd_logout(struct conn_server *server, struct list_packet *packet);
-int cmd_user(struct conn_server *server, struct list_packet *packet);
-int cmd_contact(struct conn_server *server, struct list_packet *packet);
-int cmd_message(struct conn_server *server, struct list_packet *packet);
+	/* block the SIGALRM signal before call list_add */
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGALRM);
+	sigprocmask(SIG_BLOCK, &mask, &oldmask);
 
-/* backend server packet handler */
-int srv_packet_handler(struct conn_server *server, struct list_packet *packet);
-int srv_error(struct conn_server *server, struct list_packet *packet);
-int srv_login_ok(struct conn_server *server, struct list_packet *packet);
-int srv_other_packet(struct conn_server *server, struct list_packet *packet);
+	list_add(&packet->list, keep_alive_list);
+
+	/* unblock the SIGALRM signal after call list_add */
+	sigprocmask(SIG_SETMASK, &oldmask, NULL);
+}
 
 #endif

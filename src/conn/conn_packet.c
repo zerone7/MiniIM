@@ -8,7 +8,7 @@
 int cmd_packet_handler(struct conn_server *server, struct list_packet *packet)
 {
 	uint16_t command = ntohs(get_command(packet));
-	switch(command) {
+	switch (command) {
 	case CMD_KEEP_ALIVE:
 		cmd_keep_alive(server, packet);
 		break;
@@ -35,9 +35,11 @@ int cmd_packet_handler(struct conn_server *server, struct list_packet *packet)
 	}
 }
 
-/* TODO: need to complete */
 int cmd_keep_alive(struct conn_server *server, struct list_packet *packet)
 {
+	/* add packet to keep alive list, wait for the timer to deal with it */
+	list_del(&packet->list);
+	add_keep_alive_packet(&server->keep_alive_list, packet);
 }
 
 /* TODO: need to complete */
