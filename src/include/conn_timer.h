@@ -6,33 +6,7 @@
 #include "conn_define.h"
 #include "conn_list.h"
 #include "conn_allocator.h"
-
-#define LOGIN_OK_CONNECTION		1
-#define LOGIN_UNCOMPLETE_CONNECTION	2
-#define LOGIN_ERROR_CONNECTION		3
-
-/* connection structure for each connection */
-struct connection {
-	struct list_head timer_list;
-	struct list_head recv_packet_list;
-	struct list_head send_packet_list;
-	uint32_t uin;
-	int sfd;
-	uint16_t expect_bytes;
-	uint8_t type;
-};
-
-/* uin to *conn hash map entry */
-struct uin_entry {
-	uint32_t uin;
-	struct connection *conn;
-};
-
-/* socket fd to *conn hash map entry */
-struct fd_entry {
-	int fd;
-	struct connection *conn;
-};
+#include "conn_connection.h"
 
 /* timer structure used for client timeout */
 struct conn_timer {
