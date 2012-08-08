@@ -53,7 +53,7 @@ static inline void timer_add(struct conn_timer *timer, struct connection *conn)
 	assert(timer && conn);
 	int timeout_seconds = timer->current + CLIENT_TIMEOUT;
 	int insert_index = timeout_seconds % timer->max_slots;
-	list_add(&timer->timer_slots[insert_index], &conn->timer_list);
+	list_add(&conn->timer_list, &timer->timer_slots[insert_index]);
 }
 
 /* delete a connection from timer */

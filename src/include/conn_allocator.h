@@ -63,7 +63,7 @@ static inline void* allocator_malloc(struct allocator *a)
 static inline void allocator_free(struct allocator *a, void *p)
 {
 	struct __item *item = (struct __item *)p;
-	list_add(&a->free_list, &item->list);
+	list_add(&item->list, &a->free_list);
 }
 
 #endif
