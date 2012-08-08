@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include "conn_list.h"
 
 /*
  * The packet structure used by connection server
@@ -15,6 +16,12 @@ struct conn_packet {
 	uint32_t uin;		/* uin of the user */
 	uint8_t parameters[0];	/* command parameters */
 } __attribute__((__packed__));
+
+/* packet list */
+struct conn_packet_list {
+	struct list_head list;
+	struct conn_packet packet;
+};
 
 /* get length of the packet */
 static inline uint16_t get_length(struct conn_packet *packet)
