@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include "conn_list.h"
 
-#define LOGIN_OK_CONNECTION		1
-#define LOGIN_UNCOMPLETE_CONNECTION	2
-#define LOGIN_ERROR_CONNECTION		3
+#define NOT_LOGIN_CONNECTION		1
+#define LOGIN_OK_CONNECTION		2
+#define LOGIN_UNCOMPLETE_CONNECTION	3
+#define LOGIN_ERROR_CONNECTION		4
 
 /* connection structure for each connection */
 struct connection {
