@@ -30,6 +30,7 @@ static inline void packet_init(struct conn_packet_list *packet)
 {
 	assert(packet);
 	memset(packet, 0, sizeof(struct conn_packet_list) + MAX_PACKET_SIZE);
+	INIT_LIST_HEAD(&packet->list);
 }
 
 /* convert header from network byte order to host byte order */

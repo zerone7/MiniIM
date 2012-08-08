@@ -146,7 +146,7 @@ static int read_handler(struct conn_server *server, int infd)
 		struct connection *conn = ((struct fd_entry *)it.data)->conn;
 		struct conn_packet_list *packet =
 			allocator_malloc(&server->packet_allocator);
-		INIT_LIST_HEAD(&packet->list);
+		packet_init(packet);
 		memcpy(&packet->packet, buf, length);
 		list_add_tail(&packet->list, &conn->recv_packet_list);
 		continue;
