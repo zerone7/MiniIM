@@ -25,7 +25,7 @@ class Client:
 		buff = self.createHeader(length, command)
 		string = '! H {0}s'.format(len(password))
 		struct.pack_into(string, buff, offset, 0x02, password)
-		#self.fd.sendall(buff)
+		self.fd.sendall(buff)
 	# send set nick packet to server
 	def set_nick(self, nick):
 		offset = 12
@@ -34,7 +34,7 @@ class Client:
 		buff = self.createHeader(length, command)
 		string = '! H {0}s s'.format(len(nick))
 		struct.pack_into(string, buff, offset, 0x02, nick, '\0')
-		#self.fd.sendall(buff)
+		self.fd.sendall(buff)
 	# send add contact packet to server
 	def add_contact(self, uin):
 		offset = 12
@@ -43,13 +43,13 @@ class Client:
 		buff = self.createHeader(length, command)
 		string = '! I'
 		struct.pack_into(string, buff, offset, uin)
-		#self.fd.sendall(buff)
+		self.fd.sendall(buff)
 
 if __name__ == '__main__':
 	host = '127.0.0.1'
-	port = 31415
+	port = 27182
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	#s.connect((host, port))
+	s.connect((host, port))
 	client = Client(s)
 	cmd = raw_input('please enter your command: ')
 	while cmd != 'quit':
