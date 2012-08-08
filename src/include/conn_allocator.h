@@ -57,6 +57,13 @@ static inline void* allocator_malloc(struct allocator *a)
 	return ret;
 }
 
+/* allocate the memory, filled with zero */
+static inline void* allocator_zalloc(struct allocator *a)
+{
+	void *item = allocator_malloc(a);
+	memset(item, 0, a->element_size);
+}
+
 /**
  * free the memory
  */
