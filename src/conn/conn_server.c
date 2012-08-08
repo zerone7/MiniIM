@@ -97,6 +97,136 @@ static int accept_handler(struct conn_server *server)
 	}
 }
 
+/* 1st:
+ * last packet is incomplete, but we have got the length field,
+ * just read the left data, and copy them to the last packet
+ * in receive queue */
+static int last_packet_incomplete(struct conn_server *server,
+		struct connection *conn, const char *buf, int count)
+{
+	if (list_empty(&conn->recv_packet_list)) {
+		log_err("incomplete packet missing\n");
+		return -1;
+	}
+
+	struct list_head *last = conn->recv_packet_list.prev;
+	struct list_packet *packet =
+		list_entry(last, struct list_packet, list);
+	int have_read = get_length_host(packet) - conn->expect_bytes;
+	if (have_read < 0) {
+		log_err("imcomplete packet length wrong\n");
+		return -1;
+	}
+
+	int read_bytes = (count < conn->expect_bytes) ?
+		count : conn->expect_bytes;
+	memcpy(&packet->packet + have_read, buf, read_bytes);
+	if (count < conn->expect_bytes) {
+		conn->expect_bytes -= count;
+	} else {
+		conn->expect_bytes = 0;
+	}
+
+	return read_bytes;
+}
+
+/* 2nd:
+ * last packet is incomplete, we have only got _ONE_ byte, which
+ * means the length field is incomplete too, we should get the
+ * length first, and malloc a packet, copy 2 bytes length field
+ * to it, then we go to 1st */
+static int last_packet_incomplete_1byte(struct conn_server *server,
+		struct connection *conn, const char *buf, int count)
+{
+	int read_bytes = 1;
+	memcpy(conn->length + 1, buf, read_bytes);
+
+	int packet_length = ntohs(*((uint16_t *)conn->length));
+	if (packet_length > MAX_PACKET_LEN) {
+		log_err("packet length field is too git\n");
+		return -1;
+	}
+
+	struct list_packet *packet =
+		allocator_malloc(&server->packet_allocator);
+	packet_init(packet);
+	memcpy(&packet->packet, conn->length, 2);
+	conn->length_incomplete = false;
+	conn->expect_bytes = packet_length - 2;
+	list_add_tail(&packet->list, &conn->recv_packet_list);
+	return read_bytes;
+}
+
+/* 3rd:
+ * last packet complete, it's a new packet now! but if count
+ * is _ONE_ byte, then we go to 2nd , if count less than
+ * packet_length, we go to 1st */
+static int last_packet_complete(struct conn_server *server,
+		struct connection *conn, const char *buf, int count)
+{
+	int read_bytes;
+	if (count < 2) {
+		read_bytes = count;
+		conn->length_incomplete = true;
+		memcpy(conn->length, buf, read_bytes);
+	} else {
+		int packet_length = ntohs(*((uint16_t *)buf));
+		if (packet_length > MAX_PACKET_LEN) {
+			log_err("packet length field is too git\n");
+			return -1;
+		}
+
+		struct list_packet *packet =
+			allocator_malloc(&server->packet_allocator);
+		packet_init(packet);
+		read_bytes = (count < packet_length) ? count : packet_length;
+		memcpy(&packet->packet, buf, read_bytes);
+		if (count < packet_length) {
+			conn->expect_bytes = packet_length - read_bytes;
+		}
+		list_add_tail(&packet->list, &conn->recv_packet_list);
+	}
+
+	return read_bytes;
+}
+
+/* generate packet when we read data from fd */
+static int fill_packet(struct conn_server *server, struct connection *conn,
+		const char *buf, ssize_t count)
+{
+	const char *tmp_buf = buf;
+	int tmp_count = count, read_bytes;
+	while (tmp_count > 0) {
+		/* last packet read incomplete, but we konw the packet length */
+		if (conn->expect_bytes > 0) {
+			read_bytes = last_packet_incomplete(server,
+					conn, tmp_buf, tmp_count);
+		} else if (conn->length_incomplete) {
+			/* last packet read incomplete,
+			 * we don't know the packet length either */
+			read_bytes = last_packet_incomplete_1byte(server,
+					conn, tmp_buf, tmp_count);
+		} else {
+			read_bytes = last_packet_complete(server,
+					conn, tmp_buf, tmp_count);
+		}
+
+		if (read_bytes < 0) {
+			log_err("read packet error\n");
+			return -1;
+		}
+		tmp_buf += read_bytes;
+		tmp_count -= read_bytes;
+	}
+
+	/* we have read overflow */
+	if (tmp_count < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
 /* read data from the socket */
 static int read_handler(struct conn_server *server, int infd)
 {
@@ -109,29 +239,13 @@ static int read_handler(struct conn_server *server, int infd)
 		if ((count = read(infd, buf, sizeof(buf))) < 0) {
 			if (errno != EAGAIN) {
 				log_err("read data error\n");
-				goto read_fail;
+				done = 1;
 			}
-			goto read_success;
+			break;
 		} else if (count == 0) {
 			/* End of file, The remote has closed the connection */
-			goto read_fail;
-		}
-
-		/* read data success */
-		if (count < 2) {
-			log_alert("we only read 1 byte here, need to hanble this situation\n");
-			goto read_fail;
-		}
-
-		uint16_t length = ntohs(*(uint16_t *)buf);
-		if (length > MAX_PACKET_LEN) {
-			log_err("length field is too big\n");
-			goto read_fail;
-		}
-
-		if (length != count) {
-			log_alert("read packet uncomplete\n");
-			goto read_fail;
+			done = 1;
+			break;
 		}
 
 		/* use fd to find connection */
@@ -139,22 +253,18 @@ static int read_handler(struct conn_server *server, int infd)
 		hset_find(&server->fd_conn_map, &infd, &it);
 		if (!it.data) {
 			log_err("can not find connection\n");
-			goto read_fail;
+			done = 1;
+			break;
 		}
 
-		/* add packet to conn's receive packet list */
+		/* use fucntion fill_packet to generate packet */
 		struct connection *conn = ((struct fd_entry *)it.data)->conn;
-		struct list_packet *packet =
-			allocator_malloc(&server->packet_allocator);
-		packet_init(packet);
-		memcpy(&packet->packet, buf, length);
-		list_add_tail(&packet->list, &conn->recv_packet_list);
-		continue;
-
-read_fail:
-		done = 1;
-read_success:
-		break;
+		int ret = fill_packet(server, conn, buf, count);
+		if (ret < 0) {
+			log_err("read packet error\n");
+			done = 1;
+			break;
+		}
 	}
 
 	if (done) {

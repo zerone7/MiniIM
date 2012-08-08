@@ -2,6 +2,7 @@
 #define _CONN_CONNECTION_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include "conn_list.h"
 
@@ -18,7 +19,9 @@ struct connection {
 	uint32_t uin;
 	int sfd;
 	uint16_t expect_bytes;
+	uint8_t length[2];
 	uint8_t type;
+	bool length_incomplete;
 };
 
 /* uin to *conn hash map entry */
