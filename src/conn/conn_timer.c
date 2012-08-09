@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/time.h>
@@ -15,7 +16,10 @@ void timer_init(struct conn_timer *timer)
 	/* initialize list head */
 	assert(timer);
 	timer->current = 0;
-	timer->max_slots = CLIENT_TIMEOUT + 1;
+	timer->max_slots = CLIENT_TIMEOUT + 8;
+	timer->delay = timer->max_slots - CLIENT_TIMEOUT - 1;
+	timer->timer_slots = malloc(sizeof(struct list_head));
+	assert(timer->timer_slots);
 	for (i = 0; i < timer->max_slots; i++) {
 		INIT_LIST_HEAD(&timer->timer_slots[i]);
 	}
