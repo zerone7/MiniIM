@@ -195,7 +195,7 @@ static int last_packet_complete(struct conn_server *server,
 }
 
 /* generate packet when we read data from fd */
-static int fill_packet(struct conn_server *server, struct connection *conn,
+static int read_packet(struct conn_server *server, struct connection *conn,
 		const char *buf, int count)
 {
 	int read_bytes;
@@ -258,7 +258,7 @@ static int read_handler(struct conn_server *server, int infd)
 			/* End of file, The remote has closed the connection */
 			err = true;
 		} else {
-			if (fill_packet(server, conn, buf, count) < 0) {
+			if (read_packet(server, conn, buf, count) < 0) {
 				log_err("read packet error\n");
 				err = true;
 			}
