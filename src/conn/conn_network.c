@@ -269,7 +269,7 @@ static int read_handler(struct conn_server *server, int infd)
 	char buf[8192];
 
 	/* use fd to find connection */
-	struct connection *conn = get_conn_by_fd(infd);
+	struct connection *conn = get_conn_by_fd(server, infd);
 	if (!conn) {
 		err = true;
 	}
