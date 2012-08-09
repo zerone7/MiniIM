@@ -266,9 +266,12 @@ static int read_handler(struct conn_server *server, int infd)
 	}
 
 	if (err) {
-		/* closed connection */
-		printf("Closed connection on descriptor %d\n", infd);
-		close(infd);
+		/* close connection */
+		if (conn) {
+			close_connection(server, conn);
+		} else {
+			close(infd);
+		}
 	}
 	return 0;
 }

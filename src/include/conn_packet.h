@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include "protocol.h"
 #include "conn_list.h"
+#include "conn_connection.h"
 
 #define LIST_PACKET_SIZE	(sizeof(struct list_head) + MAX_PACKET_LEN)
 
@@ -19,6 +20,7 @@ struct list_packet {
 
 struct conn_server;
 
+void close_connection(struct conn_server *server, struct connection *conn);
 /* client packet handler */
 int cmd_packet_handler(struct conn_server *server, struct list_packet *packet);
 int cmd_keep_alive(struct conn_server *server, struct list_packet *packet);

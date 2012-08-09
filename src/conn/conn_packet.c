@@ -34,6 +34,27 @@ int cmd_packet_handler(struct conn_server *server, struct list_packet *packet)
 	}
 }
 
+/* user logout, client timeout or something error, we need to
+ * close the connection and release resource */
+void close_connection(struct conn_server *server, struct connection *conn)
+{
+	/* remove from fd-conn hash map */
+	int fd = conn->sfd;
+	close(fd);
+	hset_erase(&server->fd_conn_map, &fd);
+
+	/* remove from uin-conn hash map */
+	uint32_t uin = conn->uin;
+	if (uin > 0) {
+		hset_erase(&server->uin_conn_map, &uin);
+	}
+
+	/* remove from timer */
+	timer_del(conn);
+	/* free the conn struct */
+	allocator_free(&server->conn_allocator, conn);
+}
+
 int cmd_keep_alive(struct conn_server *server, struct list_packet *packet)
 {
 	/* add packet to keep alive list, wait for the timer to deal with it */
