@@ -229,46 +229,46 @@ static int fill_packet(struct conn_server *server, struct connection *conn,
 /* read data from the socket */
 static int read_handler(struct conn_server *server, int infd)
 {
-	int done = 0;
+	bool err = false;
 	ssize_t count;
 	char buf[8192];
+	struct connection *conn = NULL;
 
-	while (1) {
+	/* use fd to find connection */
+	iterator_t it;
+	hset_find(&server->fd_conn_map, &infd, &it);
+	if (!it.data) {
+		log_err("can not find connection\n");
+		err = true;
+		/* can not find conn in hash map, need to close the connection */
+	} else {
+		conn = ((struct fd_entry *)it.data)->conn;
+	}
+
+	/* use fucntion fill_packet to generate packet */
+	while (!err) {
 		memset(buf, 0, sizeof(buf));
 		if ((count = read(infd, buf, sizeof(buf))) < 0) {
 			if (errno != EAGAIN) {
 				log_err("read data error\n");
-				done = 1;
+				err = true;
 			}
 			break;
 		} else if (count == 0) {
 			/* End of file, The remote has closed the connection */
-			done = 1;
-			break;
-		}
-
-		/* use fd to find connection */
-		iterator_t it;
-		hset_find(&server->fd_conn_map, &infd, &it);
-		if (!it.data) {
-			log_err("can not find connection\n");
-			done = 1;
-			break;
-		}
-
-		/* use fucntion fill_packet to generate packet */
-		struct connection *conn = ((struct fd_entry *)it.data)->conn;
-		int ret = fill_packet(server, conn, buf, count);
-		if (ret < 0) {
-			log_err("read packet error\n");
-			done = 1;
-			break;
+			err = true;
+		} else {
+			if (fill_packet(server, conn, buf, count) < 0) {
+				log_err("read packet error\n");
+				err = true;
+			}
 		}
 	}
 
-	if (done) {
+	if (err) {
 		/* closed connection */
 		printf("Closed connection on descriptor %d\n", infd);
+		close(infd);
 	}
 }
 
