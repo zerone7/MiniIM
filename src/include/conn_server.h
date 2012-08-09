@@ -32,4 +32,38 @@ struct conn_server {
 
 int conn_server_init(struct conn_server *server);
 
+/* use fd to lookup conn, only return the _SAFE_ conn */
+static struct connection* get_conn_by_fd(struct conn_server *server, int fd)
+{
+	iterator_t it;
+	hset_find(&server->fd_conn_map, &fd, &it);
+	if (!it.data) {
+		return NULL;
+	} else {
+		struct connection *conn = ((struct fd_entry *)it.data)->conn;
+		if (!is_safe_conn(&server->timer, conn)) {
+			return NULL;
+		} else {
+			return conn;
+		}
+	}
+}
+
+/* use uin to lookup conn, only return the _SAFE_ conn */
+static struct connection* get_conn_by_uin(struct conn_server *server, uint32_t uin)
+{
+	iterator_t it;
+	hset_find(&server->uin_conn_map, &uin, &it);
+	if (!it.data) {
+		return NULL;
+	} else {
+		struct connection *conn = ((struct uin_entry *)it.data)->conn;
+		if (!is_safe_conn(&server->timer, conn)) {
+			return NULL;
+		} else {
+			return conn;
+		}
+	}
+}
+
 #endif
