@@ -87,22 +87,28 @@ int cmd_logout(struct conn_server *server, struct connection *conn,
 	/* TODO: send status change command to status server */
 }
 
+/* we need to forward this packet to user server, so put it onto
+ * user_conn's send queue */
 int cmd_user(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	list_add(&packet->list, &(server->user_conn.send_packet_list));
 }
 
-/* TODO: need to complete */
+/* we need to forward this packet to contact server, so put it onto
+ * contact_conn's send queue */
 int cmd_contact(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
+	list_add(&packet->list, &(server->contact_conn.send_packet_list));
 }
 
-/* TODO: need to complete */
+/* we need to forward this packet to message server, so put it onto
+ * message_conn's send queue */
 int cmd_message(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
+	list_add(&packet->list, &(server->message_conn.send_packet_list));
 }
 
 /* backend server packet handler */
@@ -138,12 +144,33 @@ int srv_error(struct conn_server *server, struct list_packet *packet)
 {
 }
 
-/* TODO: need to complete */
+/* client login successful, we mark the conn as login_ok,
+ * and send the packet to client */
 int srv_login_ok(struct conn_server *server, struct list_packet *packet)
 {
+	uint32_t uin = get_uin_host(packet);
+	struct connection *conn = get_conn_by_uin(server, uin);
+	if (!conn) {
+		allocator_free(&server->packet_allocator, packet);
+		return 0;
+	}
+
+	conn->type = LOGIN_OK_CONNECTION;
+	list_add(&packet->list, &conn->send_packet_list);
+	return 0;
 }
 
-/* TODO: need to complete */
+/* other kind of packet, check clienti's login type,
+ * if login ok, send the packet to client */
 int srv_other_packet(struct conn_server *server, struct list_packet *packet)
 {
+	uint32_t uin = get_uin_host(packet);
+	struct connection *conn = get_conn_by_uin(server, uin);
+	if (!conn || conn->type != LOGIN_OK_CONNECTION) {
+		allocator_free(&server->packet_allocator, packet);
+		return 0;
+	}
+
+	list_add(&packet->list, &conn->send_packet_list);
+	return 0;
 }
