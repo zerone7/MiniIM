@@ -31,9 +31,12 @@ int cmd_login(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
 int cmd_logout(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
-int cmd_user(struct conn_server *server, struct list_packet *packet);
-int cmd_contact(struct conn_server *server, struct list_packet *packet);
-int cmd_message(struct conn_server *server, struct list_packet *packet);
+int cmd_user(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet);
+int cmd_contact(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet);
+int cmd_message(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet);
 
 /* backend server packet handler */
 int srv_packet_handler(struct conn_server *server, struct list_packet *packet);

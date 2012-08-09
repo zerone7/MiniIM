@@ -8,6 +8,12 @@ int cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
+	if (conn->type != LOGIN_OK_CONNECTION &&
+			command != CMD_LOGIN) {
+		close_connection(server, conn);
+		allocator_free(&server->packet_allocator, packet);
+	}
+
 	switch (command) {
 	case CMD_KEEP_ALIVE:
 		cmd_keep_alive(server, conn, packet);
@@ -19,17 +25,17 @@ int cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		cmd_logout(server, conn, packet);
 		break;
 	case CMD_SET_NICK:
-		cmd_user(server, packet);
+		cmd_user(server, conn, packet);
 		break;
 	case CMD_ADD_CONTACT:
 	case CMD_ADD_CONTACT_REPLY:
 	case CMD_CONTACT_LIST:
 	case CMD_CONTACT_INFO_MULTI:
-		cmd_contact(server, packet);
+		cmd_contact(server, conn, packet);
 		break;
 	case CMD_MESSAGE:
 	case CMD_OFFLINE_MSG:
-		cmd_message(server, packet);
+		cmd_message(server, conn, packet);
 		break;
 	default:
 		log_err("unkonwn command %#hx\n", command);
@@ -62,34 +68,40 @@ int cmd_keep_alive(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	/* add packet to keep alive list, wait for the timer to deal with it */
-	list_del(&packet->list);
 	add_keep_alive_packet(&server->keep_alive_list, packet);
 }
 
-/* TODO: need to complete */
 int cmd_login(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
+	conn->type = LOGIN_UNCOMPLETE_CONNECTION;
+	cmd_user(server, conn, packet);
+}
+
+int cmd_logout(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
+{
+	allocator_free(&server->packet_allocator, packet);
+	close_connection(server, conn);
+
+	/* TODO: send status change command to status server */
+}
+
+int cmd_user(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
+{
+	list_add(&packet->list, &(server->user_conn.send_packet_list));
 }
 
 /* TODO: need to complete */
-int cmd_logout(struct conn_server *server, struct connection *conn,
+int cmd_contact(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 }
 
 /* TODO: need to complete */
-int cmd_user(struct conn_server *server, struct list_packet *packet)
-{
-}
-
-/* TODO: need to complete */
-int cmd_contact(struct conn_server *server, struct list_packet *packet)
-{
-}
-
-/* TODO: need to complete */
-int cmd_message(struct conn_server *server, struct list_packet *packet)
+int cmd_message(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
 }
 
