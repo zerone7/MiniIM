@@ -22,6 +22,7 @@ struct conn_server;
 /* client packet handler */
 int cmd_packet_handler(struct conn_server *server, struct list_packet *packet);
 int cmd_keep_alive(struct conn_server *server, struct list_packet *packet);
+int cmd_login(struct conn_server *server, struct list_packet *packet);
 int cmd_logout(struct conn_server *server, struct list_packet *packet);
 int cmd_user(struct conn_server *server, struct list_packet *packet);
 int cmd_contact(struct conn_server *server, struct list_packet *packet);

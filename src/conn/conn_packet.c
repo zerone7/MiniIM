@@ -42,6 +42,11 @@ int cmd_keep_alive(struct conn_server *server, struct list_packet *packet)
 }
 
 /* TODO: need to complete */
+int cmd_login(struct conn_server *server, struct list_packet *packet)
+{
+}
+
+/* TODO: need to complete */
 int cmd_logout(struct conn_server *server, struct list_packet *packet)
 {
 }
