@@ -192,35 +192,34 @@ static int last_packet_complete(struct conn_server *server,
 
 /* generate packet when we read data from fd */
 static int fill_packet(struct conn_server *server, struct connection *conn,
-		const char *buf, ssize_t count)
+		const char *buf, int count)
 {
-	const char *tmp_buf = buf;
-	int tmp_count = count, read_bytes;
-	while (tmp_count > 0) {
+	int read_bytes;
+	while (count > 0) {
 		/* last packet read incomplete, but we konw the packet length */
 		if (conn->expect_bytes > 0) {
 			read_bytes = last_packet_incomplete(server,
-					conn, tmp_buf, tmp_count);
+					conn, buf, count);
 		} else if (conn->length_incomplete) {
 			/* last packet read incomplete,
 			 * we don't know the packet length either */
 			read_bytes = last_packet_incomplete_1byte(server,
-					conn, tmp_buf, tmp_count);
+					conn, buf, count);
 		} else {
 			read_bytes = last_packet_complete(server,
-					conn, tmp_buf, tmp_count);
+					conn, buf, count);
 		}
 
 		if (read_bytes < 0) {
 			log_err("read packet error\n");
 			return -1;
 		}
-		tmp_buf += read_bytes;
-		tmp_count -= read_bytes;
+		buf += read_bytes;
+		count -= read_bytes;
 	}
 
 	/* we have read overflow */
-	if (tmp_count < 0) {
+	if (count < 0) {
 		return -1;
 	}
 
