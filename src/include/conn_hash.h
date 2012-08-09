@@ -1,5 +1,6 @@
 #ifndef _CONN_HASH_H_
 #define _CONN_HASH_H_
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>

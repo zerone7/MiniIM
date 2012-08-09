@@ -1,19 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <assert.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/epoll.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include "conn_define.h"
 #include "conn_log.h"
 #include "conn_server.h"
 #include "conn_packet.h"
-#include "conn_connection.h"
 
 int conn_server_init(struct conn_server *server)
 {

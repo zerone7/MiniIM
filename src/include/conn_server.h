@@ -27,8 +27,5 @@ struct conn_server {
 };
 
 int conn_server_init(struct conn_server *server);
-int setup_socket(struct conn_server *server, uint16_t port);
-int setup_epoll(struct conn_server *server, uint32_t max_events);
-int epoll_loop(struct conn_server *server);
 
 #endif

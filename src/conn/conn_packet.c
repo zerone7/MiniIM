@@ -1,4 +1,3 @@
-#include <arpa/inet.h>
 #include "conn_packet.h"
 #include "conn_list.h"
 #include "conn_server.h"

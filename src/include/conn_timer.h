@@ -1,11 +1,11 @@
 #ifndef _CONN_TIMER_H_
 #define _CONN_TIMER_H_
 
+#include <assert.h>
 #include <stdint.h>
 #include <signal.h>
 #include "conn_define.h"
 #include "conn_list.h"
-#include "conn_allocator.h"
 #include "conn_connection.h"
 
 /* timer structure used for client timeout */
