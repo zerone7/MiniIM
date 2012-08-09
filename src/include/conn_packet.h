@@ -23,10 +23,14 @@ struct conn_server;
 
 void close_connection(struct conn_server *server, struct connection *conn);
 /* client packet handler */
-int cmd_packet_handler(struct conn_server *server, struct list_packet *packet);
-int cmd_keep_alive(struct conn_server *server, struct list_packet *packet);
-int cmd_login(struct conn_server *server, struct list_packet *packet);
-int cmd_logout(struct conn_server *server, struct list_packet *packet);
+int cmd_packet_handler(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet);
+int cmd_keep_alive(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet);
+int cmd_login(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet);
+int cmd_logout(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet);
 int cmd_user(struct conn_server *server, struct list_packet *packet);
 int cmd_contact(struct conn_server *server, struct list_packet *packet);
 int cmd_message(struct conn_server *server, struct list_packet *packet);

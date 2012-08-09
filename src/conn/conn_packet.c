@@ -4,19 +4,22 @@
 #include "conn_log.h"
 
 /* client packet handler */
-int cmd_packet_handler(struct conn_server *server, struct list_packet *packet)
+int cmd_packet_handler(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
 	switch (command) {
 	case CMD_KEEP_ALIVE:
-		cmd_keep_alive(server, packet);
+		cmd_keep_alive(server, conn, packet);
 		break;
 	case CMD_LOGIN:
-	case CMD_SET_NICK:
-		cmd_user(server, packet);
+		cmd_login(server, conn, packet);
 		break;
 	case CMD_LOGOUT:
-		cmd_logout(server, packet);
+		cmd_logout(server, conn, packet);
+		break;
+	case CMD_SET_NICK:
+		cmd_user(server, packet);
 		break;
 	case CMD_ADD_CONTACT:
 	case CMD_ADD_CONTACT_REPLY:
@@ -55,7 +58,8 @@ void close_connection(struct conn_server *server, struct connection *conn)
 	allocator_free(&server->conn_allocator, conn);
 }
 
-int cmd_keep_alive(struct conn_server *server, struct list_packet *packet)
+int cmd_keep_alive(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
 	/* add packet to keep alive list, wait for the timer to deal with it */
 	list_del(&packet->list);
@@ -63,12 +67,14 @@ int cmd_keep_alive(struct conn_server *server, struct list_packet *packet)
 }
 
 /* TODO: need to complete */
-int cmd_login(struct conn_server *server, struct list_packet *packet)
+int cmd_login(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
 }
 
 /* TODO: need to complete */
-int cmd_logout(struct conn_server *server, struct list_packet *packet)
+int cmd_logout(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
 }
 
