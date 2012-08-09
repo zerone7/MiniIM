@@ -22,6 +22,24 @@ static inline void timer_tick(struct conn_timer *timer)
 	timer->current = (timer->current + 1) % timer->max_slots;
 }
 
+/* block singal alarm */
+static inline void block_sigalarm()
+{
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGALRM);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+}
+
+/* unblock signal alarm */
+static inline void unblock_sigalarm()
+{
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGALRM);
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
+}
+
 /* get current list head, they are timeouted */
 static inline struct list_head* get_timeout_list(struct conn_timer *timer)
 {
@@ -43,17 +61,14 @@ static inline void __timer_add(struct conn_timer *timer, struct connection *conn
 static inline void timer_add(struct conn_timer *timer,
 		struct connection *conn)
 {
-	sigset_t mask, oldmask;
 
 	/* block the SIGALRM signal before call __timer_add */
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGALRM);
-	sigprocmask(SIG_BLOCK, &mask, &oldmask);
+	block_sigalarm();
 
 	__timer_add(timer, conn);
 
 	/* unblock the SIGALRM signal after call __timer_add */
-	sigprocmask(SIG_SETMASK, &oldmask, NULL);
+	unblock_sigalarm();
 }
 
 /* delete a connection from timer */
@@ -66,17 +81,13 @@ static inline void __timer_del(struct connection *conn)
 /* delete a connection from timer, called in process context */
 static inline void timer_del(struct connection *conn)
 {
-	sigset_t mask, oldmask;
-
 	/* block the SIGALRM signal before call __timer_del */
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGALRM);
-	sigprocmask(SIG_BLOCK, &mask, &oldmask);
+	block_sigalarm();
 
 	__timer_del(conn);
 
 	/* unblock the SIGALRM signal after call __timer_del */
-	sigprocmask(SIG_SETMASK, &oldmask, NULL);
+	unblock_sigalarm();
 }
 
 /* move a connection from one slot to another slot */

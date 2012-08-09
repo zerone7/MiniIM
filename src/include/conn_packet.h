@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include "protocol.h"
 #include "conn_list.h"
+#include "conn_timer.h"
 #include "conn_connection.h"
 
 #define LIST_PACKET_SIZE	(sizeof(struct list_head) + MAX_PACKET_LEN)
@@ -82,17 +83,14 @@ static inline uint8_t* get_parameters_network(struct list_packet *packet)
 static inline void add_keep_alive_packet(struct list_head *keep_alive_list,
 		struct list_packet *packet)
 {
-	sigset_t mask, oldmask;
 
 	/* block the SIGALRM signal before call list_add */
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGALRM);
-	sigprocmask(SIG_BLOCK, &mask, &oldmask);
+	block_sigalarm();
 
 	list_add(&packet->list, keep_alive_list);
 
 	/* unblock the SIGALRM signal after call list_add */
-	sigprocmask(SIG_SETMASK, &oldmask, NULL);
+	unblock_sigalarm();
 }
 
 #endif
