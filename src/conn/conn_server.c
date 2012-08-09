@@ -12,6 +12,10 @@ int conn_server_init(struct conn_server *server)
 	timer_init(&server->timer);
 	allocator_init(&server->packet_allocator, LIST_PACKET_SIZE);
 	allocator_init(&server->conn_allocator, sizeof(struct connection));
+	conn_init(&server->user_conn);
+	conn_init(&server->contact_conn);
+	conn_init(&server->status_conn);
+	conn_init(&server->message_conn);
 
 	/* initialize global viariable timer, which is used by signal handler */
 	timer = &server->timer;

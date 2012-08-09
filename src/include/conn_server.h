@@ -13,6 +13,10 @@ struct conn_server {
 	struct list_head keep_alive_list;	/* keep alive packet queue */
 	struct allocator packet_allocator;
 	struct allocator conn_allocator;
+	struct connection user_conn;
+	struct connection contact_conn;
+	struct connection status_conn;
+	struct connection message_conn;
 	struct epoll_event *events;
 	hash_set_t uin_conn_map;
 	hash_set_t fd_conn_map;
