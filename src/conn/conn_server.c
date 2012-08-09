@@ -71,20 +71,22 @@ static int accept_handler(struct conn_server *server)
 				/* we have processed all incoming connections */
 				return 0;
 			} else {
-				log_err("accept connection error\n");
+				log_warning("accept connection error\n");
 				return -1;
 			}
 		}
 
 		if (set_nonblocking(infd) < 0) {
-			log_err("set infd to nonblockint mode error\n");
+			log_warning("set infd to nonblockint mode error\n");
+			close(infd);
 			return -1;
 		}
 
 		event.data.fd = infd;
 		event.events = EPOLLIN | EPOLLET;
 		if (epoll_ctl(server->efd, EPOLL_CTL_ADD, infd, &event) < 0) {
-			log_err("add fd to monitor error\n");
+			log_warning("add fd to monitor error\n");
+			close(infd);
 			return -1;
 		}
 
@@ -92,7 +94,9 @@ static int accept_handler(struct conn_server *server)
 		conn_init(conn);
 		conn->sfd = infd;
 		struct fd_entry fd_conn = {infd, conn};
+		/* insert conn to fd_conn map */
 		hset_insert(&server->fd_conn_map, &fd_conn);
+		/* insert conn to timer */
 		timer_add(&server->timer, conn);
 	}
 }
@@ -219,11 +223,7 @@ static int fill_packet(struct conn_server *server, struct connection *conn,
 	}
 
 	/* we have read overflow */
-	if (count < 0) {
-		return -1;
-	}
-
-	return 0;
+	return (count < 0) ? -1 : 0;
 }
 
 /* read data from the socket */
@@ -270,6 +270,7 @@ static int read_handler(struct conn_server *server, int infd)
 		printf("Closed connection on descriptor %d\n", infd);
 		close(infd);
 	}
+	return 0;
 }
 
 int conn_server_init(struct conn_server *server)
@@ -292,6 +293,7 @@ int conn_server_init(struct conn_server *server)
 	/* initialize socket fd to connection hash map, set socket fd to be key */
 	HSET_INIT(&server->fd_conn_map, sizeof(struct fd_entry));
 	__set_key_size(&server->fd_conn_map, sizeof(int));
+	return 0;
 }
 
 /* prepare the socket */
@@ -366,7 +368,9 @@ int epoll_loop(struct conn_server *server)
 				continue;
 			} else if (server->sfd == events[i].data.fd) {
 				/* one or more incoming connections */
-				accept_handler(server);
+				if (accept_handler(server) < 0) {
+					log_warning("accept connection error\n");
+				}
 			} else {
 				/* we have data on the fd waiting to be read */
 				read_handler(server, events[i].data.fd);
