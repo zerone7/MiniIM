@@ -15,10 +15,10 @@
 #include <sys/epoll.h>
 #include <errno.h>
 
-#define INET
-#define MODULE
+#define _INET_
+#define _MODULE_
 
-#ifdef  INET
+#ifdef  _INET_
 /* Internet Socket */
 #define USER_IP         "127.0.0.1"  
 #define USER_PORT       11001  

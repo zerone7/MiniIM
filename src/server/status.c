@@ -1,77 +1,117 @@
-/***************************************************************
- * user.c
- *      用户模块，负责登录及加好友功能
+/*************************************************************
+ * status.c
+ *      状态模块，负责状态的维护及查询功能
  *
- **************************************************************/
-#include "user.h"
+ ************************************************************/
+#include "status.h"
 #include "modules.h"
-#include "user_db.h"
 
-#define ACCEPT      5   //监听端口要监听的连接数
-#define MAX_EVENTS  10
-#define BUFSIZE     MAX_PACKET_LEN
+#define MAX_USER        100000    
+#define MAX_ONLINE_USER 100
+#define MAX_EVENTS      10
+#define ACCEPT          5
 
-int passwd_verify(int uin, char *passwd)
+struct status_info  *cache;
+struct status_info  *map[MAX_USER+1];
+struct list_head    free_list_head; 
+
+int status_list_init()
 {
-    int ret;
-    char user_pass[32];
-    
-    ret = user_get_passwd(uin, user_pass);
-    if(ret < 1 || strcmp(passwd, user_pass))
+    int i;
+
+    cache = (struct status_info *)malloc(MAX_ONLINE_USER * sizeof(struct status_info));
+    if(!cache)
     {
-        printf("user[%d] password: '%s' is wrong\n", uin, passwd);
+        perror("malloc for cache");
         return -1;
     }
+    memset(cache, 0, sizeof(struct status_info) * MAX_ONLINE_USER);
+
+    INIT_LIST_HEAD(&free_list_head);
+    for(i = 1; i <= MAX_ONLINE_USER; i++)
+        list_add(&cache[i].node, &free_list_head);
 
     return 0;
 }
 
-int user_packet(struct packet *inpack, struct packet *outpack)
+struct status_info * status_list_get()
 {
-    char nick[50], *pnick;
+    struct status_info *info;
+    if(list_empty(&free_list_head))
+        return NULL;
+    else
+    {
+        info = list_first_entry(&free_list_head, struct status_info, node);
+        list_del(&info->node);
+        return info;
+    }
+}
 
-    printf("User_packet: processing packet\n");
+void status_list_put(struct status_info *info)
+{
+    list_add_tail(&info->node, &free_list_head);
+}
+
+int status_packet(struct packet *inpack, struct packet *outpack)
+{
+    uint32_t *pcon_ip, uin;
+    uint16_t *ptype;
+    struct status_info *info;
+
+    printf("Status_packet: processing packet --->\n");
+    uin = inpack->uin;
+    if(uin >= MAX_USER)
+    {
+        printf("uin %d overflow\n", uin);
+        return -1;
+    }
+
     switch(inpack->cmd)
     {
-        case CMD_LOGIN:
-            printf("UIN %d, PSSWD: %s\n", inpack->uin, PARAM_PASSWD(inpack));
-            if(passwd_verify(inpack->uin, PARAM_PASSWD(inpack)))
+        case CMD_STATUS_CHANGE:
+            ptype = PARAM_TYPE(inpack);
+            pcon_ip = PARAM_IP(inpack);
+            printf("STATUS_CHANGE type: %d, ip: %d\n", *ptype, *pcon_ip);
+            if(*ptype)  //上线
             {
-                outpack->len = (uint16_t) PACKET_HEADER_LEN + 4;
-                outpack->ver = (uint16_t) 1;
-                outpack->cmd = (uint16_t) SRV_ERROR;
-                outpack->uin = inpack->uin;
-                
-                *(uint32_t *)outpack->params = CMD_LOGIN << 16 | 1;
+                if(map[uin])
+                    return -1;
+                info = status_list_get();
+                map[uin] = info;
+                info->con_ip = *pcon_ip; 
+            }
+            else  //下线
+            {
+                if(!map[uin])
+                    return -1;
+                info = map[uin];
+                map[uin] = NULL;
+                status_list_put(info);
+            }
+            outpack->len = PACKET_HEADER_LEN;
+            outpack->ver = 1;
+            outpack->cmd = REP_STATUS_CHANGED;
+            outpack->uin = uin;
+            break;
+        case CMD_GET_STATUS:
+            ptype = PARAM_TYPE(outpack);
+            pcon_ip = PARAM_IP(outpack);
+            if(map[uin])
+            {
+                *ptype = 1;
+                *pcon_ip = map[uin]->con_ip;
             }
             else
             {
-                user_get_nick(inpack->uin, nick);
-                *PARAM_NICKLEN(outpack) = (uint16_t) strlen(nick) +1; 
-                sprintf(PARAM_NICK(outpack),"%s", nick);
-
-                outpack->len = (uint16_t) PACKET_HEADER_LEN + 2 + strlen(nick);
-                outpack->ver = (uint16_t) 1;
-                outpack->cmd = (uint16_t) SRV_LOGIN_OK;
-                outpack->uin = inpack->uin; 
-
-                /* 发送给状态模块状态改变请求  */
-                //To be continue..
+                *ptype = 0;
+                *pcon_ip = 0;
             }
-            break;
-        case CMD_SET_NICK:
-            printf("UIN %d, nick: %s, nicklen %d\n", inpack->uin, PARAM_NICK(inpack), *PARAM_NICKLEN(inpack));
 
-            pnick = PARAM_NICK(inpack);
-            user_set_nick(inpack->uin, pnick);
-
-            *PARAM_NICKLEN(outpack) = *PARAM_NICKLEN(inpack); 
-            sprintf(PARAM_NICK(outpack),"%s", pnick);
-
-            outpack->len = (uint16_t) PACKET_HEADER_LEN + 2 + strlen(pnick) +1;// header + 2 + strlen + '\0'
-            outpack->ver = (uint16_t) 1;
-            outpack->cmd = (uint16_t) SRV_SET_NICK_OK;
-            outpack->uin = inpack->uin; 
+            printf("GET_STATUS stat: %d\n", *ptype);
+            outpack->ver =1;
+            outpack->len = PACKET_HEADER_LEN + 6;
+            outpack->cmd = REP_STATUS;
+            outpack->uin = uin;
             break;
         default:
             return -1;
@@ -81,43 +121,37 @@ int user_packet(struct packet *inpack, struct packet *outpack)
 }
 
 #ifdef _MODULE_
-void user()
+void status()
 #else
 void main()
 #endif
 {
-    int listen_fd, status_fd, tmpfd, client_fd, epfd, size, nfds, i, n, left, ret;
+    int listen_fd, client_fd, epfd ,tmpfd; //file descriptor
+    int nfds, n, left, size, i;
     struct epoll_event ev, events[MAX_EVENTS];
     struct sockaddr_in client_addr;
-    struct packet *inpack, *outpack, *stat_pack;
+    struct packet *inpack, *outpack;
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
-    stat_pack = malloc(MAX_PACKET_LEN);
 
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
 
-    printf("User start: %d\n", getpid());
+    printf("Status start: %d\n", getpid());
 
     /* Init database connection */
-    ret = user_db_init();
-    if(ret)
+    if(status_list_init())
     {
-        perror("database connect error\n"); 
+        printf("status_list_init failed !\n");
         goto exit;
     }
 
-
-    listen_fd = service(USER, ACCEPT);
+    listen_fd = service(STATUS, ACCEPT);
     if(listen_fd < 0)
         goto exit;
-    printf("==> User listened\n");
+    printf("==> Status listened\n");
 
-/*  status_fd = connect_to(STATUS);
-    if(status_fd < 0)
-        goto exit;
-*/
     epfd = epoll_create(MAX_EVENTS);
     if(epfd == -1)
     {
@@ -222,8 +256,11 @@ void main()
                         }
                     }   
                     
-                    if(user_packet(inpack, outpack))
+                    if(status_packet(inpack, outpack))
+                    {   
+                        write(tmpfd, " ", 1);
                         continue;
+                    }
                             
                     write(tmpfd, outpack, outpack->len);
                 }
@@ -232,9 +269,10 @@ void main()
     }
 
 exit:
-    printf("==> User process is going to exit !\n");
+    printf("STATUS Exit\n");
+    free(cache);
     free(inpack);
     free(outpack);
-    user_db_close();
     close(listen_fd);
+    
 }
