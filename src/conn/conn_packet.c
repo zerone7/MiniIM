@@ -4,29 +4,38 @@
 #include "conn_log.h"
 
 /* client packet handler */
-int cmd_packet_handler(struct conn_server *server, struct list_packet *packet)
+int cmd_packet_handler(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
+	if (conn->type != LOGIN_OK_CONNECTION &&
+			command != CMD_LOGIN) {
+		close_connection(server, conn);
+		allocator_free(&server->packet_allocator, packet);
+	}
+
 	switch (command) {
 	case CMD_KEEP_ALIVE:
-		cmd_keep_alive(server, packet);
+		cmd_keep_alive(server, conn, packet);
 		break;
 	case CMD_LOGIN:
-	case CMD_SET_NICK:
-		cmd_user(server, packet);
+		cmd_login(server, conn, packet);
 		break;
 	case CMD_LOGOUT:
-		cmd_logout(server, packet);
+		cmd_logout(server, conn, packet);
+		break;
+	case CMD_SET_NICK:
+		cmd_user(server, conn, packet);
 		break;
 	case CMD_ADD_CONTACT:
 	case CMD_ADD_CONTACT_REPLY:
 	case CMD_CONTACT_LIST:
 	case CMD_CONTACT_INFO_MULTI:
-		cmd_contact(server, packet);
+		cmd_contact(server, conn, packet);
 		break;
 	case CMD_MESSAGE:
 	case CMD_OFFLINE_MSG:
-		cmd_message(server, packet);
+		cmd_message(server, conn, packet);
 		break;
 	default:
 		log_err("unkonwn command %#hx\n", command);
@@ -34,31 +43,72 @@ int cmd_packet_handler(struct conn_server *server, struct list_packet *packet)
 	}
 }
 
-int cmd_keep_alive(struct conn_server *server, struct list_packet *packet)
+/* user logout, client timeout or something error, we need to
+ * close the connection and release resource */
+void close_connection(struct conn_server *server, struct connection *conn)
+{
+	/* remove from fd-conn hash map */
+	int fd = conn->sfd;
+	close(fd);
+	hset_erase(&server->fd_conn_map, &fd);
+
+	/* remove from uin-conn hash map */
+	uint32_t uin = conn->uin;
+	if (uin > 0) {
+		hset_erase(&server->uin_conn_map, &uin);
+	}
+
+	/* remove from timer */
+	timer_del(conn);
+	/* free the conn struct */
+	allocator_free(&server->conn_allocator, conn);
+}
+
+int cmd_keep_alive(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
 	/* add packet to keep alive list, wait for the timer to deal with it */
-	list_del(&packet->list);
 	add_keep_alive_packet(&server->keep_alive_list, packet);
 }
 
-/* TODO: need to complete */
-int cmd_logout(struct conn_server *server, struct list_packet *packet)
+int cmd_login(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
+	conn->type = LOGIN_UNCOMPLETE_CONNECTION;
+	cmd_user(server, conn, packet);
 }
 
-/* TODO: need to complete */
-int cmd_user(struct conn_server *server, struct list_packet *packet)
+int cmd_logout(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
+	allocator_free(&server->packet_allocator, packet);
+	close_connection(server, conn);
+
+	/* TODO: send status change command to status server */
 }
 
-/* TODO: need to complete */
-int cmd_contact(struct conn_server *server, struct list_packet *packet)
+/* we need to forward this packet to user server, so put it onto
+ * user_conn's send queue */
+int cmd_user(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
+	list_add(&packet->list, &(server->user_conn.send_packet_list));
 }
 
-/* TODO: need to complete */
-int cmd_message(struct conn_server *server, struct list_packet *packet)
+/* we need to forward this packet to contact server, so put it onto
+ * contact_conn's send queue */
+int cmd_contact(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
 {
+	list_add(&packet->list, &(server->contact_conn.send_packet_list));
+}
+
+/* we need to forward this packet to message server, so put it onto
+ * message_conn's send queue */
+int cmd_message(struct conn_server *server, struct connection *conn,
+		struct list_packet *packet)
+{
+	list_add(&packet->list, &(server->message_conn.send_packet_list));
 }
 
 /* backend server packet handler */
@@ -94,12 +144,33 @@ int srv_error(struct conn_server *server, struct list_packet *packet)
 {
 }
 
-/* TODO: need to complete */
+/* client login successful, we mark the conn as login_ok,
+ * and send the packet to client */
 int srv_login_ok(struct conn_server *server, struct list_packet *packet)
 {
+	uint32_t uin = get_uin_host(packet);
+	struct connection *conn = get_conn_by_uin(server, uin);
+	if (!conn) {
+		allocator_free(&server->packet_allocator, packet);
+		return 0;
+	}
+
+	conn->type = LOGIN_OK_CONNECTION;
+	list_add(&packet->list, &conn->send_packet_list);
+	return 0;
 }
 
-/* TODO: need to complete */
+/* other kind of packet, check clienti's login type,
+ * if login ok, send the packet to client */
 int srv_other_packet(struct conn_server *server, struct list_packet *packet)
 {
+	uint32_t uin = get_uin_host(packet);
+	struct connection *conn = get_conn_by_uin(server, uin);
+	if (!conn || conn->type != LOGIN_OK_CONNECTION) {
+		allocator_free(&server->packet_allocator, packet);
+		return 0;
+	}
+
+	list_add(&packet->list, &conn->send_packet_list);
+	return 0;
 }

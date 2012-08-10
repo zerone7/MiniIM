@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include "conn_define.h"
 #include "conn_log.h"
+#include "conn_timer.h"
 #include "conn_server.h"
 #include "conn_packet.h"
 #include "conn_connection.h"
@@ -232,17 +233,11 @@ static int read_handler(struct conn_server *server, int infd)
 	bool err = false;
 	ssize_t count;
 	char buf[8192];
-	struct connection *conn = NULL;
 
 	/* use fd to find connection */
-	iterator_t it;
-	hset_find(&server->fd_conn_map, &infd, &it);
-	if (!it.data) {
-		log_err("can not find connection\n");
+	struct connection *conn = get_conn_by_fd(server, infd);
+	if (!conn) {
 		err = true;
-		/* can not find conn in hash map, need to close the connection */
-	} else {
-		conn = ((struct fd_entry *)it.data)->conn;
 	}
 
 	/* use fucntion fill_packet to generate packet */
@@ -266,9 +261,12 @@ static int read_handler(struct conn_server *server, int infd)
 	}
 
 	if (err) {
-		/* closed connection */
-		printf("Closed connection on descriptor %d\n", infd);
-		close(infd);
+		/* close connection */
+		if (conn) {
+			close_connection(server, conn);
+		} else {
+			close(infd);
+		}
 	}
 	return 0;
 }

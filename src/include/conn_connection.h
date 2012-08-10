@@ -21,6 +21,7 @@ struct connection {
 	uint16_t expect_bytes;
 	uint8_t length[2];
 	uint8_t type;
+	uint8_t timer_slot;
 	bool length_incomplete;
 };
 

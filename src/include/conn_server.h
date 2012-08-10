@@ -13,6 +13,10 @@ struct conn_server {
 	struct list_head keep_alive_list;	/* keep alive packet queue */
 	struct allocator packet_allocator;
 	struct allocator conn_allocator;
+	struct connection user_conn;
+	struct connection contact_conn;
+	struct connection status_conn;
+	struct connection message_conn;
 	struct epoll_event *events;
 	hash_set_t uin_conn_map;
 	hash_set_t fd_conn_map;
@@ -27,5 +31,39 @@ struct conn_server {
 };
 
 int conn_server_init(struct conn_server *server);
+
+/* use fd to lookup conn, only return the _SAFE_ conn */
+static struct connection* get_conn_by_fd(struct conn_server *server, int fd)
+{
+	iterator_t it;
+	hset_find(&server->fd_conn_map, &fd, &it);
+	if (!it.data) {
+		return NULL;
+	} else {
+		struct connection *conn = ((struct fd_entry *)it.data)->conn;
+		if (!is_safe_conn(&server->timer, conn)) {
+			return NULL;
+		} else {
+			return conn;
+		}
+	}
+}
+
+/* use uin to lookup conn, only return the _SAFE_ conn */
+static struct connection* get_conn_by_uin(struct conn_server *server, uint32_t uin)
+{
+	iterator_t it;
+	hset_find(&server->uin_conn_map, &uin, &it);
+	if (!it.data) {
+		return NULL;
+	} else {
+		struct connection *conn = ((struct uin_entry *)it.data)->conn;
+		if (!is_safe_conn(&server->timer, conn)) {
+			return NULL;
+		} else {
+			return conn;
+		}
+	}
+}
 
 #endif
