@@ -27,5 +27,6 @@ void va_log(const char *level_str, const char *fmt, va_list args)
 	if (rawtime - lasttime > 5) {
 		fflush(log_fp);
 	}
+	fflush(log_fp);
 	lasttime = rawtime;
 }

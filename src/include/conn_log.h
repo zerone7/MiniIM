@@ -13,7 +13,7 @@
 #define INFO_LOG_LEVEL		6
 #define DEBUG_LOG_LEVEL		7
 /* static default log level, can ONLY config at compile time */
-#define DEFAULT_LOG_LEVEL	NOTICE_LOG_LEVEL
+#define DEFAULT_LOG_LEVEL	DEBUG_LOG_LEVEL
 
 /* initialize logger, open log file */
 #define LOG_INIT(log_file)						\
