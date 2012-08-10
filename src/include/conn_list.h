@@ -53,6 +53,23 @@ static inline void list_del(struct list_head *entry)
 	entry->next = NULL;
 }
 
+/* list_replace - replace old entry by new one */
+static inline void list_replace(struct list_head *old,
+		struct list_head *new)
+{
+	new->next = old->next;
+	new->next->prev = new;
+	new->prev = old->prev;
+	new->prev->next = new;
+}
+
+static inline void list_replace_init(struct list_head *old,
+		struct list_head *new)
+{
+	list_replace(old, new);
+	INIT_LIST_HEAD(old);
+}
+
 /**
  * list_empty - tests whether a list is empty
  */
