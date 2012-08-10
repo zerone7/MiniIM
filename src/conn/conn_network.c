@@ -130,6 +130,9 @@ static int last_packet_incomplete(struct conn_server *server,
 		conn->expect_bytes -= count;
 	} else {
 		conn->expect_bytes = 0;
+		log_debug("read %d bytes from client %u, command %#hx\n",
+				get_length_host(packet), conn->uin,
+				get_command_host(packet));
 	}
 
 	return read_bytes;
@@ -188,7 +191,12 @@ static int last_packet_complete(struct conn_server *server,
 		memcpy(&packet->packet, buf, read_bytes);
 		if (count < packet_length) {
 			conn->expect_bytes = packet_length - read_bytes;
+		} else {
+			log_debug("read %d bytes from client %u, command %#hx\n",
+					get_length_host(packet), conn->uin,
+					get_command_host(packet));
 		}
+
 		list_add_tail(&packet->list, &conn->recv_packet_list);
 	}
 
@@ -253,6 +261,7 @@ static int read_handler(struct conn_server *server, int infd)
 			/* End of file, The remote has closed the connection */
 			err = true;
 		} else {
+			log_info("read %d bytes data from %d\n", count, infd);
 			if (read_packet(server, conn, buf, count) < 0) {
 				log_err("read packet error\n");
 				err = true;
@@ -281,18 +290,21 @@ int setup_socket(struct conn_server *server, uint16_t port)
 		log_err("create socket error\n");
 		return -1;
 	}
+	log_notice("bind on port %hu success\n", port);
 
 	if (set_nonblocking(server->sfd) < 0) {
 		log_err("can not set socket to nonblocking mode\n");
 		close(server->sfd);
 		return -1;
 	}
+	log_notice("set socket %d to nonblocking mode\n", server->sfd);
 
 	if (listen(server->sfd, SOMAXCONN) < 0) {
 		log_err("can not listen on socket\n");
 		close(server->sfd);
 		return -1;
 	}
+	log_notice("listen on socket %d\n", server->sfd);
 
 	return 0;
 }
@@ -308,6 +320,7 @@ int setup_epoll(struct conn_server *server, uint32_t max_events)
 		log_err("create epoll monitor fd failed\n");
 		return -1;
 	}
+	log_notice("create epoll fd %d\n", server->efd);
 
 	event.data.fd = server->sfd;
 	event.events = EPOLLIN | EPOLLET;
@@ -315,6 +328,8 @@ int setup_epoll(struct conn_server *server, uint32_t max_events)
 		log_err("can not add sfd to monitored fd set\n");
 		return -1;
 	}
+	log_notice("add fd %d to epoll fd %d, mode %s\n",
+			server->sfd, server->efd, "EPOLLIN | EPOLLET");
 
 	/* events buffer */
 	server->max_events = max_events;
@@ -343,11 +358,13 @@ int epoll_loop(struct conn_server *server)
 				continue;
 			} else if (server->sfd == events[i].data.fd) {
 				/* one or more incoming connections */
+				log_info("accept connection from client\n");
 				if (accept_handler(server) < 0) {
 					log_warning("accept connection error\n");
 				}
 			} else {
 				/* we have data on the fd waiting to be read */
+				log_info("start reading data from fd %d\n", events[i].data.fd);
 				read_handler(server, events[i].data.fd);
 			}
 		}

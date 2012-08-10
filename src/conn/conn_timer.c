@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <sys/time.h>
 #include "conn_timer.h"
+#include "conn_log.h"
 
 struct conn_timer *timer;
 
@@ -42,4 +43,5 @@ void every_second_func(int signo)
 {
 	timer_tick(timer);
 	/* TODO: need to be implemented */
+	log_debug("timer tick every second\n");
 }
