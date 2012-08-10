@@ -12,7 +12,6 @@
 #include "conn_connection.h"
 
 #define LIST_PACKET_SIZE	(sizeof(struct list_head) + MAX_PACKET_LEN)
-#define CMD_STATUS_CHANGE	0x0101
 #define STATUS_CHANGE_ONLINE	0x01
 #define STATUS_CHANGE_OFFLINE	0x02
 
