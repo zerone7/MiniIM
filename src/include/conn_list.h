@@ -79,7 +79,7 @@ static inline int list_empty(const struct list_head *head)
 }
 
 /* list_is_singular - tests whether a list has just one entry */
-static inline ine list_is_singular(const struct list_head *head)
+static inline int list_is_singular(const struct list_head *head)
 {
 	return !list_empty(head) && (head->next == head->prev);
 }
