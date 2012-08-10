@@ -269,9 +269,9 @@ static void read_process_packet(struct conn_server *server,
 			list_first_entry(&new_head, struct list_packet, list);
 		list_del(&first->list);
 		if (is_server_socket(server, conn->sfd)) {
-			cmd_packet_handler(server, conn, first);
-		} else {
 			srv_packet_handler(server, first);
+		} else {
+			cmd_packet_handler(server, conn, first);
 		}
 	}
 }
@@ -324,6 +324,46 @@ static int read_handler(struct conn_server *server, int infd)
 	}
 
 	return 0;
+}
+
+/* write data to socket */
+static int write_handler(struct conn_server *server, int infd)
+{
+	int count;
+	bool err = false;
+
+	/* use fd to find connection */
+	struct connection *conn = get_conn_by_fd(server, infd);
+	if (!conn) {
+		log_err("can not find conn by %d\n", infd);
+		return -1;
+	}
+
+	/* remove all packet from connection */
+	struct list_head new_head;
+	struct list_head *head = &conn->send_packet_list;
+	list_replace_init(head, &new_head);
+	while (!list_empty(&new_head)) {
+		struct list_packet *packet =
+			list_first_entry(&new_head, struct list_packet, list);
+		list_del(&packet->list);
+
+		uint16_t length = get_length_host(packet);
+		if ((count = write(infd, &packet->packet, length)) < 0) {
+			if (errno != EAGAIN) {
+				log_err("write data error\n");
+				err = true;
+			}
+			break;
+		} else if (count == 0) {
+			/* End of file, The remote has closed the connection */
+			err = true;
+		} else {
+			log_info("write %d bytes data to %d, command %#hx\n",
+					count, infd, get_command_host(packet));
+			allocator_free(&server->packet_allocator, packet);
+		}
+	}
 }
 
 /* prepare the socket */
@@ -418,5 +458,25 @@ int epoll_loop(struct conn_server *server)
 
 	free(events);
 	close(server->sfd);
+	return 0;
+}
+
+int add_to_epoll(int efd, int sfd)
+{
+	struct epoll_event event;
+	if (set_nonblocking(sfd) < 0) {
+		log_warning("set infd to nonblockint mode error\n");
+		close(sfd);
+		return -1;
+	}
+
+	event.data.fd = sfd;
+	event.events = EPOLLIN | EPOLLET;
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event) < 0) {
+		log_warning("add fd to monitor error\n");
+		close(sfd);
+		return -1;
+	}
+
 	return 0;
 }

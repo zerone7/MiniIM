@@ -114,6 +114,10 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	log_notice("setup epoll on socket %d success\n", server.sfd);
+	add_to_epoll(server.efd, server.user_conn.sfd);
+	add_to_epoll(server.efd, server.contact_conn.sfd);
+	add_to_epoll(server.efd, server.status_conn.sfd);
+	add_to_epoll(server.efd, server.message_conn.sfd);
 
 	log_notice("starting epoll loop\n");
 	epoll_loop(&server);
