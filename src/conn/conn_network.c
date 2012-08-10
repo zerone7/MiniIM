@@ -318,7 +318,9 @@ static int read_handler(struct conn_server *server, int infd)
 			close(infd);
 		}
 	} else {
+		log_debug("start processing packets for client %u\n", conn->uin);
 		read_process_packet(server, conn);
+		log_debug("end processing packets for client %u\n", conn->uin);
 	}
 
 	return 0;
