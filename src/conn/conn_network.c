@@ -235,6 +235,47 @@ static int read_packet(struct conn_server *server, struct connection *conn,
 	return (count < 0) ? -1 : 0;
 }
 
+/* check this socket is server socket */
+static inline bool is_server_socket(struct conn_server *server, int fd)
+{
+	if (fd == server->user_conn.sfd ||
+			fd == server->contact_conn.sfd ||
+			fd == server->message_conn.sfd ||
+			fd == server->status_conn.sfd) {
+		return true;
+	}
+
+	return false;
+}
+
+/* process packet after read */
+static void read_process_packet(struct conn_server *server,
+		struct connection *conn)
+{
+	/* remove all packet from connection */
+	struct list_head new_head;
+	struct list_head *head = &conn->recv_packet_list;
+	if (conn->expect_bytes > 0) {
+		/* last packet is incomplete, ignore it */
+		struct list_head *last_complete = head->prev->prev;
+		list_cut_position(&new_head, head, last_complete);
+	} else {
+		list_replace_init(head, &new_head);
+	}
+
+	/* process all packet on list */
+	while (!list_empty(&new_head)) {
+		struct list_packet *first =
+			list_first_entry(&new_head, struct list_packet, list);
+		list_del(&first->list);
+		if (is_server_socket(server, conn->sfd)) {
+			cmd_packet_handler(server, conn, first);
+		} else {
+			srv_packet_handler(server, first);
+		}
+	}
+}
+
 /* read data from the socket */
 static int read_handler(struct conn_server *server, int infd)
 {
@@ -276,7 +317,10 @@ static int read_handler(struct conn_server *server, int infd)
 		} else {
 			close(infd);
 		}
+	} else {
+		read_process_packet(server, conn);
 	}
+
 	return 0;
 }
 
