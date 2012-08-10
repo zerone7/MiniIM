@@ -9,6 +9,7 @@ FILE *log_fp = NULL;
 /* generic log function used by log_* */
 void va_log(const char *level_str, const char *fmt, va_list args)
 {
+	static time_t lasttime;
 	time_t rawtime;
 	struct tm *timeinfo;
 	char buffer[64];
@@ -23,4 +24,8 @@ void va_log(const char *level_str, const char *fmt, va_list args)
 
 	/* output log message after log time and level string */
 	vfprintf(log_fp, fmt, args);
+	if (rawtime - lasttime > 5) {
+		fflush(log_fp);
+	}
+	lasttime = rawtime;
 }
