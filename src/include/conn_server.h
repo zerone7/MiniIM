@@ -35,6 +35,16 @@ int conn_server_init(struct conn_server *server);
 /* use fd to lookup conn, only return the _SAFE_ conn */
 static struct connection* get_conn_by_fd(struct conn_server *server, int fd)
 {
+	if (fd == server->user_conn.sfd) {
+		return &server->user_conn;
+	} else if (fd == server->contact_conn.sfd) {
+		return &server->contact_conn;
+	} else if (fd == server->status_conn.sfd) {
+		return &server->status_conn;
+	} else if (fd == server->message_conn.sfd) {
+		return &server->message_conn;
+	}
+
 	block_sigalarm();
 	iterator_t it;
 	hset_find(&server->fd_conn_map, &fd, &it);
