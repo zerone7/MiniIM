@@ -48,7 +48,7 @@ static struct connection* get_conn_by_fd(struct conn_server *server, int fd)
 	block_sigalarm();
 	iterator_t it;
 	hset_find(&server->fd_conn_map, &fd, &it);
-	if (!it.data) {
+	if (!it.ptr) {
 		unblock_sigalarm();
 		return NULL;
 	} else {
@@ -69,7 +69,7 @@ static struct connection* get_conn_by_uin(struct conn_server *server, uint32_t u
 	block_sigalarm();
 	iterator_t it;
 	hset_find(&server->uin_conn_map, &uin, &it);
-	if (!it.data) {
+	if (!it.ptr) {
 		return NULL;
 	} else {
 		struct connection *conn = ((struct uin_entry *)it.data)->conn;
