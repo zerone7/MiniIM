@@ -27,7 +27,8 @@ void conn_destroy(struct conn_server *server, struct connection *conn)
 
 /* user logout, client timeout or something error, we need to
  * close the connection and release resource */
-void close_connection(struct conn_server *server, struct connection *conn)
+static void close_connection(struct conn_server *server, struct connection *conn,
+		bool block_signal)
 {
 	/* remove from fd-conn hash map */
 	int fd = conn->sfd;
@@ -38,25 +39,58 @@ void close_connection(struct conn_server *server, struct connection *conn)
 	hset_erase(&server->uin_conn_map, &conn->uin);
 
 	/* remove from timer */
-	timer_del(conn);
+	if (block_signal) {
+		timer_del(conn);
+	} else {
+		__timer_del(conn);
+	}
 	conn_destroy(server, conn);
 
 	/* free the conn struct */
 	allocator_free(&server->conn_allocator, conn);
 }
 
-void send_offline_to_status(struct conn_server *server,
-		uint32_t uin)
+void close_conn_block_signal(struct conn_server *server, struct connection *conn)
+{
+	return close_connection(server, conn, true);
+}
+
+void close_conn_unblock_signal(struct conn_server *server, struct connection *conn)
+{
+	return close_connection(server, conn, false);
+}
+
+static void send_offline_to_status(struct conn_server *server,
+		uint32_t uin, bool block_signal)
 {
 	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
+	packet_init(packet);
 	struct packet *p = &packet->packet;
 	p->len = htons(18);
 	p->ver = htons(0x01);
 	p->cmd = htons(CMD_STATUS_CHANGE);
 	p->uin = htonl(uin);
 	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);
-	add_offline_packet(&(server->status_conn.send_packet_list), packet);
+	if (block_signal) {
+		block_sigalarm();
+		list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
+		unblock_sigalarm();
+	} else {
+		list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
+	}
 	wait_for_write(server->efd, server->status_conn.sfd);
+}
+
+void send_offline_block_signal(struct conn_server *server,
+		uint32_t uin)
+{
+	return send_offline_to_status(server, uin, true);
+}
+
+void send_offline_unblock_signal(struct conn_server *server,
+		uint32_t uin)
+{
+	return send_offline_to_status(server, uin, false);
 }
 
 /* client packet handler */
@@ -122,10 +156,10 @@ void cmd_logout(struct conn_server *server, struct connection *conn,
 {
 	uint32_t uin = get_uin_host(packet);
 	allocator_free(&server->packet_allocator, packet);
-	close_connection(server, conn);
+	close_conn_block_signal(server, conn);
 
 	/* send status change command to status server */
-	send_offline_to_status(server, uin);
+	send_offline_block_signal(server, uin);
 }
 
 /* we need to forward this packet to user server, so put it onto

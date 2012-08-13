@@ -79,6 +79,7 @@ static inline void __timer_del(struct connection *conn)
 {
 	assert(conn);
 	list_del(&conn->timer_list);
+	INIT_LIST_HEAD(&conn->timer_list);
 }
 
 /* delete a connection from timer, called in process context */

@@ -74,7 +74,7 @@ void every_second_func(int signo)
 		/* NOTE: use shared data here, not recommendate */
 		allocator_free(&srv->packet_allocator, packet);
 
-		conn = get_conn_by_uin(srv, uin);
+		conn = get_conn_by_uin_unblock(srv, uin);
 		if (conn) {
 			timer_move(&srv->timer, conn);
 		}
@@ -85,7 +85,7 @@ void every_second_func(int signo)
 	while (!list_empty(timeout_list)) {
 		conn = list_first_entry(timeout_list,
 				struct connection, timer_list);
-		send_offline_to_status(srv, conn->uin);
-		close_connection(srv, conn);
+		send_offline_unblock_signal(srv, conn->uin);
+		close_conn_unblock_signal(srv, conn);
 	}
 }

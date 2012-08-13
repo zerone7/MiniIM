@@ -23,9 +23,8 @@ struct list_packet {
 
 struct conn_server;
 
-void close_connection(struct conn_server *server, struct connection *conn);
-void send_offline_to_status(struct conn_server *server,
-		uint32_t uin);
+void close_conn_block_signal(struct conn_server *server, struct connection *conn);
+void close_conn_unblock_signal(struct conn_server *server, struct connection *conn);
 
 /* client packet handler */
 void cmd_packet_handler(struct conn_server *server, struct connection *conn,

@@ -83,4 +83,20 @@ static struct connection* get_conn_by_uin(struct conn_server *server, uint32_t u
 	}
 }
 
+static struct connection* get_conn_by_uin_unblock(struct conn_server *server, uint32_t uin)
+{
+	iterator_t it;
+	hset_find(&server->uin_conn_map, &uin, &it);
+	if (!it.ptr) {
+		return NULL;
+	} else {
+		struct connection *conn = ((struct uin_entry *)it.data)->conn;
+		if (!is_safe_conn(&server->timer, conn)) {
+			return NULL;
+		} else {
+			return conn;
+		}
+	}
+}
+
 #endif
