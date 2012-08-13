@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include "conn_timer.h"
 #include "conn_log.h"
+#include "conn_packet.h"
 #include "conn_server.h"
 
 /* initialize the timer struct */
@@ -40,7 +41,33 @@ void timer_init(struct conn_timer *timer)
 /* this function will be called every second */
 void every_second_func(int signo)
 {
-	timer_tick(&srv->timer);
-	/* TODO: need to be implemented */
 	log_debug("timer tick every second\n");
+	timer_tick(&srv->timer);
+
+	/* move alive connection */
+	struct list_head *alive_list = &srv->keep_alive_list;
+	struct list_packet *packet;
+	struct connection *conn;
+	uint32_t uin;
+	while (!list_empty(alive_list)) {
+		packet = list_first_entry(alive_list, struct list_packet, list);
+		list_del(&packet->list);
+		uin = get_uin_host(packet);
+		allocator_free(&srv->packet_allocator, packet);
+
+		conn = get_conn_by_uin(srv, uin);
+		assert(conn);
+		timer_move(&srv->timer, conn);
+		log_debug("client %u is alive\n", conn->uin);
+	}
+
+	/* remove dead connection */
+	struct list_head *timeout_list = get_timeout_list(&srv->timer);
+	while (!list_empty(timeout_list)) {
+		conn = list_first_entry(timeout_list,
+				struct connection, timer_list);
+		send_offline_to_status(srv, conn->uin);
+		log_info("client %u is dead\n", conn->uin);
+		close_connection(srv, conn);
+	}
 }
