@@ -23,7 +23,7 @@ int user_db_init()
 
 void user_db_close()
 {
-    mysql_free_result(result);
+    //mysql_free_result(result);
     mysql_close(&mysql);
 }
 
@@ -54,7 +54,6 @@ int  user_get_passwd(int uin , char *passwd)
         }
         else
         {
-            printf("Result set is empty\n");
             mysql_free_result(result);
             return 0;
         }
@@ -109,7 +108,6 @@ int user_get_nick(int uin, char *nick)
         }
         else
         {
-            printf("Result set is empty\n");
             mysql_free_result(result);
             return 0;
         }

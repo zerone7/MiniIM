@@ -3,8 +3,8 @@
  *      状态模块，负责状态的维护及查询功能
  *
  ************************************************************/
-#include "status.h"
 #include "modules.h"
+#include "status.h"
 
 #define MAX_USER        100000    
 #define MAX_ONLINE_USER 100
@@ -22,7 +22,7 @@ int status_list_init()
     cache = (struct status_info *)malloc(MAX_ONLINE_USER * sizeof(struct status_info));
     if(!cache)
     {
-        perror("malloc for cache");
+        stat_err("malloc for cache error\n");
         return -1;
     }
     memset(cache, 0, sizeof(struct status_info) * MAX_ONLINE_USER);
@@ -54,24 +54,24 @@ void status_list_put(struct status_info *info)
 
 int status_packet(struct packet *inpack, struct packet *outpack)
 {
-    uint32_t *pcon_ip, uin;
+    uint32_t *pcon_ip, uin, *puin;
     uint16_t *ptype;
     struct status_info *info;
 
-    printf("Status_packet: processing packet --->\n");
-    uin = inpack->uin;
-    if(uin >= MAX_USER)
-    {
-        printf("uin %d overflow\n", uin);
-        return -1;
-    }
+    stat_dbg("Status_packet: processing packet --->\n");
 
     switch(inpack->cmd)
     {
         case CMD_STATUS_CHANGE:
+            uin = *PARAM_UIN(inpack);
+            if(uin >= MAX_USER)
+            {
+                stat_dbg("uin %d overflow\n", uin);
+                return -1;
+            }
             ptype = PARAM_TYPE(inpack);
             pcon_ip = PARAM_IP(inpack);
-            printf("STATUS_CHANGE type: %d, ip: %d\n", *ptype, *pcon_ip);
+            stat_dbg("STATUS_CHANGE type: %d, ip: %d\n", *ptype, *pcon_ip);
             if(*ptype)  //上线
             {
                 if(map[uin])
@@ -94,8 +94,15 @@ int status_packet(struct packet *inpack, struct packet *outpack)
             outpack->uin = uin;
             break;
         case CMD_GET_STATUS:
+            uin = *(uint32_t *)inpack->params;
+            if(uin >= MAX_USER)
+            {
+                stat_dbg("uin %d overflow\n", uin);
+                return -1;
+            }
             ptype = PARAM_TYPE(outpack);
             pcon_ip = PARAM_IP(outpack);
+            *PARAM_UIN(outpack) = uin;
             if(map[uin])
             {
                 *ptype = 1;
@@ -107,11 +114,11 @@ int status_packet(struct packet *inpack, struct packet *outpack)
                 *pcon_ip = 0;
             }
 
-            printf("GET_STATUS stat: %d\n", *ptype);
+            stat_dbg("GET_STATUS stat: %d\n", *ptype);
             outpack->ver =1;
-            outpack->len = PACKET_HEADER_LEN + 6;
+            outpack->len = PACKET_HEADER_LEN + 10;
             outpack->cmd = REP_STATUS;
-            outpack->uin = uin;
+            outpack->uin = inpack->uin;
             break;
         default:
             return -1;
@@ -138,24 +145,24 @@ void main()
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
 
-    printf("Status start: %d\n", getpid());
+    stat_dbg("Status start: %d\n", getpid());
 
     /* Init database connection */
     if(status_list_init())
     {
-        printf("status_list_init failed !\n");
+        stat_dbg("status_list_init failed !\n");
         goto exit;
     }
 
     listen_fd = service(STATUS, ACCEPT);
     if(listen_fd < 0)
         goto exit;
-    printf("==> Status listened\n");
+    stat_dbg("==> Status listened\n");
 
     epfd = epoll_create(MAX_EVENTS);
     if(epfd == -1)
     {
-        perror("epoll_create");
+        stat_err("epoll_create error\n");
         goto exit;
     }
 
@@ -163,7 +170,7 @@ void main()
     ev.data.fd = listen_fd;
     if(epoll_ctl(epfd, EPOLL_CTL_ADD, listen_fd, &ev) == -1)
     {
-        perror("epoll_ctl: listen_fd");
+        stat_err("epoll_ctl error: listen_fd\n");
         goto exit;
     }
 
@@ -173,7 +180,7 @@ void main()
 
         if(nfds == -1)
         {
-            perror("epoll_wait");
+            stat_err("epoll_wait error\n");
             goto exit;
         }
 
@@ -186,16 +193,16 @@ void main()
                 client_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &size);
                 if(client_fd < 0)
                 {
-                    perror("accept");
+                    stat_err("accept error\n");
                     goto exit;
                 }
-                printf("client %s, port %d connected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+                stat_dbg("client %s, port %d connected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
                 ev.events = EPOLLIN;
                 ev.data.fd = client_fd;
                 if(epoll_ctl(epfd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
                 {
-                    perror("epoll_ctl: add");
+                    stat_err("epoll_ctl: add error\n");
                     goto exit;
                 }
                 continue;
@@ -204,15 +211,15 @@ void main()
             /* TCP连接中收到数据包 */
             if(events[i].events & EPOLLIN)
             {
-                printf("<=======  A Packet Arrive! =======>\n");
+                stat_dbg("<=======  A Packet Arrive! =======>\n");
                 if(tmpfd < 0)
                 {
-                    printf("tmpfd(%d) < 0\n", tmpfd);
+                    stat_dbg("tmpfd(%d) < 0\n", tmpfd);
                     continue;
                 }
 
                 n = read(tmpfd, inpack, PACKET_HEADER_LEN);
-                printf("read %d\n", n);
+                stat_dbg("read %d\n", n);
 
                 /* To be removed */
                 if(!strcmp((char *)inpack, "close"))
@@ -227,19 +234,19 @@ void main()
                 }
                 else if(n < 0)
                 {
-                    printf("%s\n", strerror(errno));
+                    stat_dbg("%s\n", strerror(errno));
                 }
                 else
                 {
-                    printf("PACKET: len %d, cmd %04x, uin %d\n", inpack->len, inpack->cmd, inpack->uin);
+                    stat_dbg("PACKET: len %d, cmd %04x, uin %d\n", inpack->len, inpack->cmd, inpack->uin);
                     left = inpack->len - PACKET_HEADER_LEN;
                     if(left > 0)
                     {
                         n = read(tmpfd, inpack->params, left);
-                        printf("left %d, read %d\n", left, n);
+                        stat_dbg("left %d, read %d\n", left, n);
                         if(n < 0)
                         {
-                            printf("%s\n", strerror(errno));
+                            stat_dbg("%s\n", strerror(errno));
                         }
                         else if(n == 0)
                         {
@@ -251,7 +258,7 @@ void main()
 
                         if(n != left)
                         {
-                            printf("read: n != left\n");
+                            stat_dbg("read: n != left\n");
                             continue;
                         }
                     }   
@@ -269,10 +276,10 @@ void main()
     }
 
 exit:
-    printf("STATUS Exit\n");
-    free(cache);
-    free(inpack);
-    free(outpack);
+    stat_dbg("STATUS Exit\n");
+   // free(cache);
+   // free(inpack);
+   // free(outpack);
     close(listen_fd);
     
 }

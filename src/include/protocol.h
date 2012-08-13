@@ -3,12 +3,11 @@
  *      网络通信协议相关的数据定义
  *
  ***********************************************************/
+#include <stdint.h>
 
 /*
  * 客户端发送给服务器的请求/命令
  */
-#include <stdint.h>
-
 #define CMD_KEEP_ALIVE          0x000A
 #define CMD_LOGIN               0x0101
 #define CMD_LOGOUT              0x0102
@@ -27,8 +26,6 @@
 #define SRV_LOGIN_OK            0x0101
 #define SRV_SET_NICK_OK         0x0201
 #define SRV_ADD_CONTACT_WAIT    0x0301
-#define SRV_ADD_CONTACT_AUTH    0x0302
-#define SRV_ADD_CONTACT_REPLY   0x0303
 #define SRV_CONTACT_LIST        0x0401
 #define SRV_CONTACT_INFO_MULTI  0x0402
 #define SRV_MESSAGE             0x0501
@@ -41,6 +38,7 @@
 #define CMD_STATUS_CHANGE       0x1101
 #define CMD_GET_STATUS          0x1201
 #define CMD_MULTI_STATUS        0x1202
+#define CMD_MSG_FRIEND          0x1203
 #define REP_STATUS_CHANGED      0x2101
 #define REP_STATUS              0x2201
 

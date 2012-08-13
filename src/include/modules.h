@@ -37,6 +37,11 @@
 #define MESSAGE         3
 #define STATUS          4
 
+/* Debug defines */
+#define DEBUG_USER
+#define DEBUG_FRIEND
+#define DEBUG_MESSAGE
+#define DEBUG_STATUS
 
 void user();
 void friend();
