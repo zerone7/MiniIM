@@ -4,8 +4,7 @@
 #include <sys/time.h>
 #include "conn_timer.h"
 #include "conn_log.h"
-
-struct conn_timer *timer;
+#include "conn_server.h"
 
 /* initialize the timer struct */
 void timer_init(struct conn_timer *timer)
@@ -41,7 +40,7 @@ void timer_init(struct conn_timer *timer)
 /* this function will be called every second */
 void every_second_func(int signo)
 {
-	timer_tick(timer);
+	timer_tick(&srv->timer);
 	/* TODO: need to be implemented */
 	log_debug("timer tick every second\n");
 }

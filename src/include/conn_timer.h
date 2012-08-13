@@ -113,6 +113,7 @@ static inline bool is_safe_conn(struct conn_timer *timer, struct connection *con
 
 void timer_init(struct conn_timer *timer);
 void every_second_func(int signo);
-extern struct conn_timer *timer;
+struct conn_server;
+extern struct conn_server *srv;
 
 #endif

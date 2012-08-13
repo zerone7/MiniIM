@@ -4,7 +4,10 @@
 #include "conn_log.h"
 #include "conn_server.h"
 #include "conn_packet.h"
+#include "conn_timer.h"
 #include "conn_network.h"
+
+struct conn_server *srv;
 
 int conn_server_init(struct conn_server *server)
 {
@@ -19,8 +22,6 @@ int conn_server_init(struct conn_server *server)
 	conn_init(&server->status_conn);
 	conn_init(&server->message_conn);
 
-	/* initialize global viariable timer, which is used by signal handler */
-	timer = &server->timer;
 	INIT_LIST_HEAD(&server->keep_alive_list);
 
 	/* initialize uin to connection hash map, set uin to be key */
@@ -61,6 +62,7 @@ int main(int argc, char *argv[])
 
 	LOG_INIT("log_conn");
 	conn_server_init(&server);
+	srv = &server;
 
 	/* connect to user server */
 	int fd;
