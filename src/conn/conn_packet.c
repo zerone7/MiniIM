@@ -2,17 +2,18 @@
 #include "conn_list.h"
 #include "conn_server.h"
 #include "conn_log.h"
+#include "conn_network.h"
 
 /* client packet handler */
 int cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
-	if (conn->type != LOGIN_OK_CONNECTION &&
+	/*if (conn->type != LOGIN_OK_CONNECTION &&
 			command != CMD_LOGIN) {
 		close_connection(server, conn);
 		allocator_free(&server->packet_allocator, packet);
-	}
+	}*/
 
 	switch (command) {
 	case CMD_KEEP_ALIVE:
@@ -75,6 +76,7 @@ void send_offline_to_status(struct conn_server *server,
 	p->uin = htonl(uin);
 	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);
 	add_offline_packet(&(server->status_conn.send_packet_list), packet);
+	wait_for_write(server->efd, server->status_conn.sfd);
 }
 
 int cmd_keep_alive(struct conn_server *server, struct connection *conn,
@@ -108,6 +110,7 @@ int cmd_user(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	list_add(&packet->list, &(server->user_conn.send_packet_list));
+	wait_for_write(server->efd, server->user_conn.sfd);
 }
 
 /* we need to forward this packet to contact server, so put it onto
@@ -116,6 +119,7 @@ int cmd_contact(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	list_add(&packet->list, &(server->contact_conn.send_packet_list));
+	wait_for_write(server->efd, server->contact_conn.sfd);
 }
 
 /* we need to forward this packet to message server, so put it onto
@@ -124,6 +128,7 @@ int cmd_message(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	list_add(&packet->list, &(server->message_conn.send_packet_list));
+	wait_for_write(server->efd, server->message_conn.sfd);
 }
 
 /* backend server packet handler */
@@ -172,6 +177,7 @@ int srv_login_ok(struct conn_server *server, struct list_packet *packet)
 
 	conn->type = LOGIN_OK_CONNECTION;
 	list_add(&packet->list, &conn->send_packet_list);
+	wait_for_write(server->efd, conn->sfd);
 	return 0;
 }
 
@@ -187,5 +193,6 @@ int srv_other_packet(struct conn_server *server, struct list_packet *packet)
 	}
 
 	list_add(&packet->list, &conn->send_packet_list);
+	wait_for_write(server->efd, conn->sfd);
 	return 0;
 }

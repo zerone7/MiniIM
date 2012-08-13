@@ -14,26 +14,8 @@
 #include "conn_timer.h"
 #include "conn_server.h"
 #include "conn_packet.h"
+#include "conn_network.h"
 #include "conn_connection.h"
-
-/* set socket to non blocking */
-static int set_nonblocking(int sfd)
-{
-	int flags, ret;
-
-	if ((flags = fcntl(sfd, F_GETFL, 0)) < 0) {
-		log_err("can not get socket lock\n");
-		return -1;
-	}
-
-	flags |= O_NONBLOCK;
-	if (fcntl(sfd, F_SETFL, flags) < 0) {
-		log_err("can not set socket lock\n");
-		return -1;
-	}
-
-	return 0;
-}
 
 /* create listen socket, and bind it to the port */
 static int create_and_bind(uint16_t port)
@@ -349,6 +331,7 @@ static int write_handler(struct conn_server *server, int infd)
 		list_del(&packet->list);
 
 		uint16_t length = get_length_host(packet);
+		/* TODO: need to handle count less than length */
 		if ((count = write(infd, &packet->packet, length)) < 0) {
 			if (errno != EAGAIN) {
 				log_err("write data error\n");
@@ -364,6 +347,8 @@ static int write_handler(struct conn_server *server, int infd)
 			allocator_free(&server->packet_allocator, packet);
 		}
 	}
+
+	wait_for_read(server->efd, infd);
 }
 
 /* prepare the socket */
@@ -436,9 +421,9 @@ int epoll_loop(struct conn_server *server)
 		n = epoll_wait(efd, events, max_events, -1);
 		for (i = 0; i < n; i++) {
 			if ((events[i].events & EPOLLERR) ||
-					(events[i].events & EPOLLHUP) ||
-					(!(events[i].events & EPOLLIN))) {
+					(events[i].events & EPOLLHUP)) {
 				/* an error has occured on this fd */
+				/* TODO: need to handle error, listen fd and conn fd */
 				log_err("epoll error\n");
 				close(events[i].data.fd);
 				continue;
@@ -448,35 +433,21 @@ int epoll_loop(struct conn_server *server)
 				if (accept_handler(server) < 0) {
 					log_warning("accept connection error\n");
 				}
-			} else {
+			} else if (events[i].events & EPOLLIN) {
 				/* we have data on the fd waiting to be read */
 				log_info("start reading data from fd %d\n", events[i].data.fd);
 				read_handler(server, events[i].data.fd);
+			} else if (events[i].events & EPOLLOUT) {
+				/* write buffer is available */
+				log_info("start writing data to fd %d\n", events[i].data.fd);
+				write_handler(server, events[i].data.fd);
+			} else {
+				log_warning("other event\n");
 			}
 		}
 	}
 
 	free(events);
 	close(server->sfd);
-	return 0;
-}
-
-int add_to_epoll(int efd, int sfd)
-{
-	struct epoll_event event;
-	if (set_nonblocking(sfd) < 0) {
-		log_warning("set infd to nonblockint mode error\n");
-		close(sfd);
-		return -1;
-	}
-
-	event.data.fd = sfd;
-	event.events = EPOLLIN | EPOLLET;
-	if (epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event) < 0) {
-		log_warning("add fd to monitor error\n");
-		close(sfd);
-		return -1;
-	}
-
 	return 0;
 }

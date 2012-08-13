@@ -4,6 +4,7 @@
 #include "conn_log.h"
 #include "conn_server.h"
 #include "conn_packet.h"
+#include "conn_network.h"
 
 int conn_server_init(struct conn_server *server)
 {
