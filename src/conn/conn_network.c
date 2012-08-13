@@ -342,6 +342,9 @@ static int write_handler(struct conn_server *server, int infd)
 			/* End of file, The remote has closed the connection */
 			err = true;
 		} else {
+			if (count != length) {
+				log_warning("can not write a whole packet\n");
+			}
 			log_info("write %d bytes data to %d, command %#hx\n",
 					count, infd, get_command_host(packet));
 			allocator_free(&server->packet_allocator, packet);
