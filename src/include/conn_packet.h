@@ -28,26 +28,26 @@ void send_offline_to_status(struct conn_server *server,
 		uint32_t uin);
 
 /* client packet handler */
-int cmd_packet_handler(struct conn_server *server, struct connection *conn,
+void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
-int cmd_keep_alive(struct conn_server *server, struct connection *conn,
+void cmd_keep_alive(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
-int cmd_login(struct conn_server *server, struct connection *conn,
+void cmd_login(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
-int cmd_logout(struct conn_server *server, struct connection *conn,
+void cmd_logout(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
-int cmd_user(struct conn_server *server, struct connection *conn,
+void cmd_user(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
-int cmd_contact(struct conn_server *server, struct connection *conn,
+void cmd_contact(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
-int cmd_message(struct conn_server *server, struct connection *conn,
+void cmd_message(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
 
 /* backend server packet handler */
-int srv_packet_handler(struct conn_server *server, struct list_packet *packet);
-int srv_error(struct conn_server *server, struct list_packet *packet);
-int srv_login_ok(struct conn_server *server, struct list_packet *packet);
-int srv_other_packet(struct conn_server *server, struct list_packet *packet);
+void srv_packet_handler(struct conn_server *server, struct list_packet *packet);
+void srv_error(struct conn_server *server, struct list_packet *packet);
+void srv_login_ok(struct conn_server *server, struct list_packet *packet);
+void srv_other_packet(struct conn_server *server, struct list_packet *packet);
 
 /* init the packet */
 static inline void packet_init(struct list_packet *packet)
@@ -58,28 +58,28 @@ static inline void packet_init(struct list_packet *packet)
 }
 
 /* get length of the packet */
-static inline uint16_t get_length_host(struct list_packet *packet)
+static inline uint16_t get_length_host(const struct list_packet *packet)
 {
 	assert(packet);
 	return ntohs(packet->packet.len);
 }
 
 /* get version of the protocol */
-static inline uint16_t get_version_host(struct list_packet *packet)
+static inline uint16_t get_version_host(const struct list_packet *packet)
 {
 	assert(packet);
 	return ntohs(packet->packet.ver);
 }
 
 /* get command of the packet */
-static inline uint16_t get_command_host(struct list_packet *packet)
+static inline uint16_t get_command_host(const struct list_packet *packet)
 {
 	assert(packet);
 	return ntohs(packet->packet.cmd);
 }
 
 /* get uin of the packet */
-static inline uint32_t get_uin_host(struct list_packet *packet)
+static inline uint32_t get_uin_host(const struct list_packet *packet)
 {
 	assert(packet);
 	return ntohl(packet->packet.uin);

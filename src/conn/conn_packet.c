@@ -5,7 +5,7 @@
 #include "conn_network.h"
 
 /* client packet handler */
-int cmd_packet_handler(struct conn_server *server, struct connection *conn,
+void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
@@ -79,14 +79,14 @@ void send_offline_to_status(struct conn_server *server,
 	wait_for_write(server->efd, server->status_conn.sfd);
 }
 
-int cmd_keep_alive(struct conn_server *server, struct connection *conn,
+void cmd_keep_alive(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	/* add packet to keep alive list, wait for the timer to deal with it */
 	add_keep_alive_packet(&server->keep_alive_list, packet);
 }
 
-int cmd_login(struct conn_server *server, struct connection *conn,
+void cmd_login(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	conn->type = LOGIN_UNCOMPLETE_CONNECTION;
@@ -97,7 +97,7 @@ int cmd_login(struct conn_server *server, struct connection *conn,
 	cmd_user(server, conn, packet);
 }
 
-int cmd_logout(struct conn_server *server, struct connection *conn,
+void cmd_logout(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	uint32_t uin = get_uin_host(packet);
@@ -110,7 +110,7 @@ int cmd_logout(struct conn_server *server, struct connection *conn,
 
 /* we need to forward this packet to user server, so put it onto
  * user_conn's send queue */
-int cmd_user(struct conn_server *server, struct connection *conn,
+void cmd_user(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	list_add_tail(&packet->list, &(server->user_conn.send_packet_list));
@@ -119,7 +119,7 @@ int cmd_user(struct conn_server *server, struct connection *conn,
 
 /* we need to forward this packet to contact server, so put it onto
  * contact_conn's send queue */
-int cmd_contact(struct conn_server *server, struct connection *conn,
+void cmd_contact(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	list_add_tail(&packet->list, &(server->contact_conn.send_packet_list));
@@ -128,7 +128,7 @@ int cmd_contact(struct conn_server *server, struct connection *conn,
 
 /* we need to forward this packet to message server, so put it onto
  * message_conn's send queue */
-int cmd_message(struct conn_server *server, struct connection *conn,
+void cmd_message(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	list_add_tail(&packet->list, &(server->message_conn.send_packet_list));
@@ -136,7 +136,7 @@ int cmd_message(struct conn_server *server, struct connection *conn,
 }
 
 /* backend server packet handler */
-int srv_packet_handler(struct conn_server *server, struct list_packet *packet)
+void srv_packet_handler(struct conn_server *server, struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
 	switch (command) {
@@ -164,39 +164,37 @@ int srv_packet_handler(struct conn_server *server, struct list_packet *packet)
 }
 
 /* TODO: need to complete */
-int srv_error(struct conn_server *server, struct list_packet *packet)
+void srv_error(struct conn_server *server, struct list_packet *packet)
 {
 }
 
 /* client login successful, we mark the conn as login_ok,
  * and send the packet to client */
-int srv_login_ok(struct conn_server *server, struct list_packet *packet)
+void srv_login_ok(struct conn_server *server, struct list_packet *packet)
 {
 	uint32_t uin = get_uin_host(packet);
 	struct connection *conn = get_conn_by_uin(server, uin);
 	if (!conn) {
 		allocator_free(&server->packet_allocator, packet);
-		return 0;
+		return;
 	}
 
 	conn->type = LOGIN_OK_CONNECTION;
 	list_add_tail(&packet->list, &conn->send_packet_list);
 	wait_for_write(server->efd, conn->sfd);
-	return 0;
 }
 
 /* other kind of packet, check clienti's login type,
  * if login ok, send the packet to client */
-int srv_other_packet(struct conn_server *server, struct list_packet *packet)
+void srv_other_packet(struct conn_server *server, struct list_packet *packet)
 {
 	uint32_t uin = get_uin_host(packet);
 	struct connection *conn = get_conn_by_uin(server, uin);
 	if (!conn || conn->type != LOGIN_OK_CONNECTION) {
 		allocator_free(&server->packet_allocator, packet);
-		return 0;
+		return;
 	}
 
 	list_add_tail(&packet->list, &conn->send_packet_list);
 	wait_for_write(server->efd, conn->sfd);
-	return 0;
 }
