@@ -12,6 +12,8 @@
 #include "conn_connection.h"
 
 #define LIST_PACKET_SIZE	(sizeof(struct list_head) + MAX_PACKET_LEN)
+#define STATUS_CHANGE_ONLINE	0x01
+#define STATUS_CHANGE_OFFLINE	0x02
 
 /* packet list */
 struct list_packet {
@@ -22,6 +24,9 @@ struct list_packet {
 struct conn_server;
 
 void close_connection(struct conn_server *server, struct connection *conn);
+void send_offline_to_status(struct conn_server *server,
+		uint32_t uin);
+
 /* client packet handler */
 int cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet);
@@ -94,7 +99,19 @@ static inline void add_keep_alive_packet(struct list_head *keep_alive_list,
 	/* block the SIGALRM signal before call list_add */
 	block_sigalarm();
 
-	list_add(&packet->list, keep_alive_list);
+	list_add_tail(&packet->list, keep_alive_list);
+
+	/* unblock the SIGALRM signal after call list_add */
+	unblock_sigalarm();
+}
+
+static inline void add_offline_packet(struct list_head *offline_list,
+		struct list_packet *packet)
+{
+	/* block the SIGALRM signal before call list_add */
+	block_sigalarm();
+
+	list_add_tail(&packet->list, offline_list);
 
 	/* unblock the SIGALRM signal after call list_add */
 	unblock_sigalarm();

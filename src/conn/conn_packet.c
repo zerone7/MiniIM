@@ -64,6 +64,19 @@ void close_connection(struct conn_server *server, struct connection *conn)
 	allocator_free(&server->conn_allocator, conn);
 }
 
+void send_offline_to_status(struct conn_server *server,
+		uint32_t uin)
+{
+	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
+	struct packet *p = &packet->packet;
+	p->len = htons(18);
+	p->ver = htons(0x01);
+	p->cmd = htons(CMD_STATUS_CHANGE);
+	p->uin = htonl(uin);
+	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);
+	add_offline_packet(&(server->status_conn.send_packet_list), packet);
+}
+
 int cmd_keep_alive(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
@@ -81,10 +94,12 @@ int cmd_login(struct conn_server *server, struct connection *conn,
 int cmd_logout(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
+	uint32_t uin = get_uin_host(packet);
 	allocator_free(&server->packet_allocator, packet);
 	close_connection(server, conn);
 
-	/* TODO: send status change command to status server */
+	/* send status change command to status server */
+	send_offline_to_status(server, uin);
 }
 
 /* we need to forward this packet to user server, so put it onto

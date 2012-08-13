@@ -130,6 +130,9 @@ static int last_packet_incomplete(struct conn_server *server,
 		conn->expect_bytes -= count;
 	} else {
 		conn->expect_bytes = 0;
+		log_debug("read %d bytes from client %u, command %#hx\n",
+				get_length_host(packet), conn->uin,
+				get_command_host(packet));
 	}
 
 	return read_bytes;
@@ -188,7 +191,12 @@ static int last_packet_complete(struct conn_server *server,
 		memcpy(&packet->packet, buf, read_bytes);
 		if (count < packet_length) {
 			conn->expect_bytes = packet_length - read_bytes;
+		} else {
+			log_debug("read %d bytes from client %u, command %#hx\n",
+					get_length_host(packet), conn->uin,
+					get_command_host(packet));
 		}
+
 		list_add_tail(&packet->list, &conn->recv_packet_list);
 	}
 
@@ -227,6 +235,47 @@ static int read_packet(struct conn_server *server, struct connection *conn,
 	return (count < 0) ? -1 : 0;
 }
 
+/* check this socket is server socket */
+static inline bool is_server_socket(struct conn_server *server, int fd)
+{
+	if (fd == server->user_conn.sfd ||
+			fd == server->contact_conn.sfd ||
+			fd == server->message_conn.sfd ||
+			fd == server->status_conn.sfd) {
+		return true;
+	}
+
+	return false;
+}
+
+/* process packet after read */
+static void read_process_packet(struct conn_server *server,
+		struct connection *conn)
+{
+	/* remove all packet from connection */
+	struct list_head new_head;
+	struct list_head *head = &conn->recv_packet_list;
+	if (conn->expect_bytes > 0) {
+		/* last packet is incomplete, ignore it */
+		struct list_head *last_complete = head->prev->prev;
+		list_cut_position(&new_head, head, last_complete);
+	} else {
+		list_replace_init(head, &new_head);
+	}
+
+	/* process all packet on list */
+	while (!list_empty(&new_head)) {
+		struct list_packet *first =
+			list_first_entry(&new_head, struct list_packet, list);
+		list_del(&first->list);
+		if (is_server_socket(server, conn->sfd)) {
+			srv_packet_handler(server, first);
+		} else {
+			cmd_packet_handler(server, conn, first);
+		}
+	}
+}
+
 /* read data from the socket */
 static int read_handler(struct conn_server *server, int infd)
 {
@@ -253,6 +302,7 @@ static int read_handler(struct conn_server *server, int infd)
 			/* End of file, The remote has closed the connection */
 			err = true;
 		} else {
+			log_info("read %d bytes data from %d\n", count, infd);
 			if (read_packet(server, conn, buf, count) < 0) {
 				log_err("read packet error\n");
 				err = true;
@@ -267,8 +317,53 @@ static int read_handler(struct conn_server *server, int infd)
 		} else {
 			close(infd);
 		}
+	} else {
+		log_debug("start processing packets for client %u\n", conn->uin);
+		read_process_packet(server, conn);
+		log_debug("end processing packets for client %u\n", conn->uin);
 	}
+
 	return 0;
+}
+
+/* write data to socket */
+static int write_handler(struct conn_server *server, int infd)
+{
+	int count;
+	bool err = false;
+
+	/* use fd to find connection */
+	struct connection *conn = get_conn_by_fd(server, infd);
+	if (!conn) {
+		log_err("can not find conn by %d\n", infd);
+		return -1;
+	}
+
+	/* remove all packet from connection */
+	struct list_head new_head;
+	struct list_head *head = &conn->send_packet_list;
+	list_replace_init(head, &new_head);
+	while (!list_empty(&new_head)) {
+		struct list_packet *packet =
+			list_first_entry(&new_head, struct list_packet, list);
+		list_del(&packet->list);
+
+		uint16_t length = get_length_host(packet);
+		if ((count = write(infd, &packet->packet, length)) < 0) {
+			if (errno != EAGAIN) {
+				log_err("write data error\n");
+				err = true;
+			}
+			break;
+		} else if (count == 0) {
+			/* End of file, The remote has closed the connection */
+			err = true;
+		} else {
+			log_info("write %d bytes data to %d, command %#hx\n",
+					count, infd, get_command_host(packet));
+			allocator_free(&server->packet_allocator, packet);
+		}
+	}
 }
 
 /* prepare the socket */
@@ -281,18 +376,21 @@ int setup_socket(struct conn_server *server, uint16_t port)
 		log_err("create socket error\n");
 		return -1;
 	}
+	log_notice("bind on port %hu success\n", port);
 
 	if (set_nonblocking(server->sfd) < 0) {
 		log_err("can not set socket to nonblocking mode\n");
 		close(server->sfd);
 		return -1;
 	}
+	log_notice("set socket %d to nonblocking mode\n", server->sfd);
 
 	if (listen(server->sfd, SOMAXCONN) < 0) {
 		log_err("can not listen on socket\n");
 		close(server->sfd);
 		return -1;
 	}
+	log_notice("listen on socket %d\n", server->sfd);
 
 	return 0;
 }
@@ -308,6 +406,7 @@ int setup_epoll(struct conn_server *server, uint32_t max_events)
 		log_err("create epoll monitor fd failed\n");
 		return -1;
 	}
+	log_notice("create epoll fd %d\n", server->efd);
 
 	event.data.fd = server->sfd;
 	event.events = EPOLLIN | EPOLLET;
@@ -315,6 +414,8 @@ int setup_epoll(struct conn_server *server, uint32_t max_events)
 		log_err("can not add sfd to monitored fd set\n");
 		return -1;
 	}
+	log_notice("add fd %d to epoll fd %d, mode %s\n",
+			server->sfd, server->efd, "EPOLLIN | EPOLLET");
 
 	/* events buffer */
 	server->max_events = max_events;
@@ -343,11 +444,13 @@ int epoll_loop(struct conn_server *server)
 				continue;
 			} else if (server->sfd == events[i].data.fd) {
 				/* one or more incoming connections */
+				log_info("accept connection from client\n");
 				if (accept_handler(server) < 0) {
 					log_warning("accept connection error\n");
 				}
 			} else {
 				/* we have data on the fd waiting to be read */
+				log_info("start reading data from fd %d\n", events[i].data.fd);
 				read_handler(server, events[i].data.fd);
 			}
 		}
@@ -355,5 +458,25 @@ int epoll_loop(struct conn_server *server)
 
 	free(events);
 	close(server->sfd);
+	return 0;
+}
+
+int add_to_epoll(int efd, int sfd)
+{
+	struct epoll_event event;
+	if (set_nonblocking(sfd) < 0) {
+		log_warning("set infd to nonblockint mode error\n");
+		close(sfd);
+		return -1;
+	}
+
+	event.data.fd = sfd;
+	event.events = EPOLLIN | EPOLLET;
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event) < 0) {
+		log_warning("add fd to monitor error\n");
+		close(sfd);
+		return -1;
+	}
+
 	return 0;
 }

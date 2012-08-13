@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <string.h>
+#include "modules.h"
 #include "conn_log.h"
 #include "conn_server.h"
 #include "conn_packet.h"
@@ -31,6 +32,28 @@ int conn_server_init(struct conn_server *server)
 	return 0;
 }
 
+static int connect_to_server(const char *ip, uint16_t port)
+{
+	struct sockaddr_in addr;
+	int fd;
+
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr(ip);
+	addr.sin_port = htons(port);
+
+	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		log_err("create socket error\n");
+		return -1;
+	}
+
+	if (connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0) {
+		log_err("connect to server %s error\n", ip);
+		return -1;
+	}
+	return fd;
+}
+
 int main(int argc, char *argv[])
 {
 	struct conn_server server;
@@ -38,24 +61,65 @@ int main(int argc, char *argv[])
 	LOG_INIT("log_conn");
 	conn_server_init(&server);
 
-	/* TODO: connect to user server */
+	/* connect to user server */
+	int fd;
+	if ((fd = connect_to_server(USER_IP, USER_PORT)) < 0) {
+		log_err("can not connect to user server (%s, %hu)\n",
+				USER_IP, USER_PORT);
+		return 0;
+	}
+	server.user_conn.sfd = fd;
+	log_notice("connect to user server (%s, %hu) success\n",
+			USER_IP, USER_PORT);
 
-	/* TODO: connect to contact server */
 
-	/* TODO: connect to status server */
+	/* connect to contact server */
+	if ((fd = connect_to_server(FRIEND_IP, FRIEND_PORT)) < 0) {
+		log_err("can not connect to contact server (%s, %hu)\n",
+				FRIEND_IP, FRIEND_PORT);
+		return 0;
+	}
+	server.contact_conn.sfd = fd;
+	log_notice("connect to contact server (%s, %hu) success\n",
+			FRIEND_IP, FRIEND_PORT);
 
-	/* TODO: connect to message server */
+	/* connect to status server */
+	if ((fd = connect_to_server(STATUS_IP, STATUS_PORT)) < 0) {
+		log_err("can not connect to status server (%s, %hu)\n",
+				STATUS_IP, STATUS_PORT);
+		return 0;
+	}
+	server.status_conn.sfd = fd;
+	log_notice("connect to status server (%s, %hu) success\n",
+			STATUS_IP, STATUS_PORT);
+
+	/* connect to message server */
+	if ((fd = connect_to_server(MESSAGE_IP, MESSAGE_PORT)) < 0) {
+		log_err("can not connect to message server (%s, %hu)\n",
+				MESSAGE_IP, MESSAGE_PORT);
+		return 0;
+	}
+	server.message_conn.sfd = fd;
+	log_notice("connect to message server (%s, %hu) success\n",
+			MESSAGE_IP, MESSAGE_PORT);
 
 	if (setup_socket(&server, CONN_SERVER_PORT) < 0) {
 		log_err("setup listen socket error\n");
 		return 0;
 	}
+	log_notice("setup listen socket %d success\n", server.sfd);
 
 	if (setup_epoll(&server, MAX_EPOLL_EVENTS) < 0) {
 		log_err("setup epoll error\n");
 		return 0;
 	}
+	log_notice("setup epoll on socket %d success\n", server.sfd);
+	add_to_epoll(server.efd, server.user_conn.sfd);
+	add_to_epoll(server.efd, server.contact_conn.sfd);
+	add_to_epoll(server.efd, server.status_conn.sfd);
+	add_to_epoll(server.efd, server.message_conn.sfd);
 
+	log_notice("starting epoll loop\n");
 	epoll_loop(&server);
 
 	LOG_DESTROY();

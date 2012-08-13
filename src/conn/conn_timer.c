@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <sys/time.h>
 #include "conn_timer.h"
+#include "conn_log.h"
 
 struct conn_timer *timer;
 
@@ -18,7 +19,7 @@ void timer_init(struct conn_timer *timer)
 	timer->current = 0;
 	timer->max_slots = CLIENT_TIMEOUT + 8;
 	timer->delay = timer->max_slots - CLIENT_TIMEOUT - 1;
-	timer->timer_slots = malloc(sizeof(struct list_head));
+	timer->timer_slots = malloc(sizeof(struct list_head) * timer->max_slots);
 	assert(timer->timer_slots);
 	for (i = 0; i < timer->max_slots; i++) {
 		INIT_LIST_HEAD(&timer->timer_slots[i]);
@@ -42,4 +43,5 @@ void every_second_func(int signo)
 {
 	timer_tick(timer);
 	/* TODO: need to be implemented */
+	log_debug("timer tick every second\n");
 }
