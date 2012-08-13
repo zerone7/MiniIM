@@ -41,7 +41,6 @@ void timer_init(struct conn_timer *timer)
 /* this function will be called every second */
 void every_second_func(int signo)
 {
-	log_debug("timer tick, current index %hu\n", srv->timer.current);
 	timer_tick(&srv->timer);
 
 	/* move alive connection */
@@ -58,7 +57,6 @@ void every_second_func(int signo)
 		conn = get_conn_by_uin(srv, uin);
 		if (conn) {
 			timer_move(&srv->timer, conn);
-			log_debug("client %u is alive\n", conn->uin);
 		}
 	}
 
@@ -68,7 +66,6 @@ void every_second_func(int signo)
 		conn = list_first_entry(timeout_list,
 				struct connection, timer_list);
 		send_offline_to_status(srv, conn->uin);
-		log_info("client %u is dead\n", conn->uin);
 		close_connection(srv, conn);
 	}
 }
