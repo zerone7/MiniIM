@@ -4,6 +4,61 @@
 #include "conn_log.h"
 #include "conn_network.h"
 
+/* this function ONLY removes the packets, does not remove the timer */
+void conn_destroy(struct conn_server *server, struct connection *conn)
+{
+	/* remove recv packets */
+	struct list_head *head = &conn->recv_packet_list;
+	struct list_packet *p;
+	while (!list_empty(head)) {
+		p = list_first_entry(head, struct list_packet, list);
+		list_del(&p->list);
+		allocator_free(&server->packet_allocator, p);
+	}
+
+	/* remove send packets */
+	head = &conn->send_packet_list;
+	while (!list_empty(head)) {
+		p = list_first_entry(head, struct list_packet, list);
+		list_del(&p->list);
+		allocator_free(&server->packet_allocator, p);
+	}
+}
+
+/* user logout, client timeout or something error, we need to
+ * close the connection and release resource */
+void close_connection(struct conn_server *server, struct connection *conn)
+{
+	/* remove from fd-conn hash map */
+	int fd = conn->sfd;
+	close(fd);
+	hset_erase(&server->fd_conn_map, &fd);
+
+	/* remove from uin-conn hash map */
+	hset_erase(&server->uin_conn_map, &conn->uin);
+
+	/* remove from timer */
+	timer_del(conn);
+	conn_destroy(server, conn);
+
+	/* free the conn struct */
+	allocator_free(&server->conn_allocator, conn);
+}
+
+void send_offline_to_status(struct conn_server *server,
+		uint32_t uin)
+{
+	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
+	struct packet *p = &packet->packet;
+	p->len = htons(18);
+	p->ver = htons(0x01);
+	p->cmd = htons(CMD_STATUS_CHANGE);
+	p->uin = htonl(uin);
+	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);
+	add_offline_packet(&(server->status_conn.send_packet_list), packet);
+	wait_for_write(server->efd, server->status_conn.sfd);
+}
+
 /* client packet handler */
 void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
@@ -42,41 +97,6 @@ void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		log_err("unkonwn command %#hx\n", command);
 		break;
 	}
-}
-
-/* user logout, client timeout or something error, we need to
- * close the connection and release resource */
-void close_connection(struct conn_server *server, struct connection *conn)
-{
-	/* remove from fd-conn hash map */
-	int fd = conn->sfd;
-	close(fd);
-	hset_erase(&server->fd_conn_map, &fd);
-
-	/* remove from uin-conn hash map */
-	uint32_t uin = conn->uin;
-	if (uin > 0) {
-		hset_erase(&server->uin_conn_map, &uin);
-	}
-
-	/* remove from timer */
-	timer_del(conn);
-	/* free the conn struct */
-	allocator_free(&server->conn_allocator, conn);
-}
-
-void send_offline_to_status(struct conn_server *server,
-		uint32_t uin)
-{
-	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
-	struct packet *p = &packet->packet;
-	p->len = htons(18);
-	p->ver = htons(0x01);
-	p->cmd = htons(CMD_STATUS_CHANGE);
-	p->uin = htonl(uin);
-	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);
-	add_offline_packet(&(server->status_conn.send_packet_list), packet);
-	wait_for_write(server->efd, server->status_conn.sfd);
 }
 
 void cmd_keep_alive(struct conn_server *server, struct connection *conn,

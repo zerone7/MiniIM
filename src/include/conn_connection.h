@@ -47,4 +47,7 @@ static inline void conn_init(struct connection *conn)
 	conn->type = NOT_LOGIN_CONNECTION;
 }
 
+struct conn_server;
+void conn_destroy(struct conn_server *server, struct connection *conn);
+
 #endif
