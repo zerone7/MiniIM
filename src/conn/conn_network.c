@@ -301,9 +301,9 @@ static int read_handler(struct conn_server *server, int infd)
 
 	if (err) {
 		/* close connection */
-		/* TODO: use timer to close the connection */
+		/* use timer to close the connection */
 		if (conn) {
-			close_connection(server, conn);
+			timer_remove_conn(server, conn);
 		} else {
 			close(infd);
 		}
@@ -354,7 +354,7 @@ static int write_handler(struct conn_server *server, int infd)
 			if (count != length) {
 				log_warning("can not write a whole packet\n");
 			}
-			log_info("write %d bytes data to %d, command %#hx\n",
+			log_debug("write %d bytes data to %d, command %#hx\n",
 					count, infd, get_command_host(packet));
 			allocator_free(&server->packet_allocator, packet);
 		}

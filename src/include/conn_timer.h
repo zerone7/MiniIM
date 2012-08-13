@@ -112,6 +112,7 @@ static inline bool is_safe_conn(struct conn_timer *timer, struct connection *con
 }
 
 void timer_init(struct conn_timer *timer);
+void timer_remove_conn(struct conn_server *server, struct connection *conn);
 void every_second_func(int signo);
 struct conn_server;
 extern struct conn_server *srv;

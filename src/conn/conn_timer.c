@@ -38,6 +38,25 @@ void timer_init(struct conn_timer *timer)
 	setitimer(ITIMER_REAL, &val, NULL);
 }
 
+/* mark the connection as 'unsafe', so we can't find it before delete it */
+void timer_remove_conn(struct conn_server *server, struct connection *conn)
+{
+	block_sigalarm();
+	struct conn_timer *timer = &server->timer;
+	if (!is_safe_conn(timer, conn)) {
+		unblock_sigalarm();
+		return;
+	}
+
+	uint8_t current = timer->current;
+	/* delay 4 seconds to delete it */
+	uint8_t new_index = (timer->current + 4) % timer->max_slots;
+	conn->timer_slot = new_index;
+	list_add_tail(&conn->timer_list, &timer->timer_slots[new_index]);
+
+	unblock_sigalarm();
+}
+
 /* this function will be called every second */
 void every_second_func(int signo)
 {
