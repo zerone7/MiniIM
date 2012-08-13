@@ -10,11 +10,16 @@
 #include "modules.h"
 
 #define CHILDNUM        4
-#define PROCESS_MASK    0x1
+
+#define USER_START      0x1
+#define FRIEND_START    0x2
+#define MESSAGE_START   0x4
+#define STATUS_START    0x8
+#define PROCESS_MASK    USER_START 
 
 int main()
 {
-    int i, alive = 0;
+    int i, alive = 0, start;
     pid_t pid[CHILDNUM]; //子进程进程号
     pid_t waitpid;
 
@@ -23,9 +28,10 @@ int main()
     for(i = 0; i < CHILDNUM; i++)
         pid[i] = -1;
 
+    start = PROCESS_MASK;
     for(i = 0; i < CHILDNUM; i++)
     {
-        if(PROCESS_MASK & 1<<i)
+        if(start & 1<<i)
         {
             /* 依次创建各个模块进程 */
             if((pid[i] = fork()) == 0) //子进程
