@@ -90,6 +90,10 @@ int cmd_login(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	conn->type = LOGIN_UNCOMPLETE_CONNECTION;
+	/* NOTE: this is used for test */
+	uint32_t uin = get_uin_host(packet);
+	struct uin_entry entry = {uin, conn};
+	hset_insert(&server->uin_conn_map, &entry);
 	cmd_user(server, conn, packet);
 }
 
@@ -109,7 +113,7 @@ int cmd_logout(struct conn_server *server, struct connection *conn,
 int cmd_user(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
-	list_add(&packet->list, &(server->user_conn.send_packet_list));
+	list_add_tail(&packet->list, &(server->user_conn.send_packet_list));
 	wait_for_write(server->efd, server->user_conn.sfd);
 }
 
@@ -118,7 +122,7 @@ int cmd_user(struct conn_server *server, struct connection *conn,
 int cmd_contact(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
-	list_add(&packet->list, &(server->contact_conn.send_packet_list));
+	list_add_tail(&packet->list, &(server->contact_conn.send_packet_list));
 	wait_for_write(server->efd, server->contact_conn.sfd);
 }
 
@@ -127,7 +131,7 @@ int cmd_contact(struct conn_server *server, struct connection *conn,
 int cmd_message(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
-	list_add(&packet->list, &(server->message_conn.send_packet_list));
+	list_add_tail(&packet->list, &(server->message_conn.send_packet_list));
 	wait_for_write(server->efd, server->message_conn.sfd);
 }
 
@@ -176,7 +180,7 @@ int srv_login_ok(struct conn_server *server, struct list_packet *packet)
 	}
 
 	conn->type = LOGIN_OK_CONNECTION;
-	list_add(&packet->list, &conn->send_packet_list);
+	list_add_tail(&packet->list, &conn->send_packet_list);
 	wait_for_write(server->efd, conn->sfd);
 	return 0;
 }
@@ -192,7 +196,7 @@ int srv_other_packet(struct conn_server *server, struct list_packet *packet)
 		return 0;
 	}
 
-	list_add(&packet->list, &conn->send_packet_list);
+	list_add_tail(&packet->list, &conn->send_packet_list);
 	wait_for_write(server->efd, conn->sfd);
 	return 0;
 }

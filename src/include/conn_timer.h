@@ -57,7 +57,7 @@ static inline void __timer_add(struct conn_timer *timer, struct connection *conn
 	int timeout_seconds = timer->current + timer->max_slots - 1;
 	int insert_index = timeout_seconds % timer->max_slots;
 	conn->timer_slot = (uint8_t)insert_index;
-	list_add(&conn->timer_list, &timer->timer_slots[insert_index]);
+	list_add_tail(&conn->timer_list, &timer->timer_slots[insert_index]);
 }
 
 /* add a connection to timer, called in process context */

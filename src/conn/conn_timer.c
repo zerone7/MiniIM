@@ -41,7 +41,7 @@ void timer_init(struct conn_timer *timer)
 /* this function will be called every second */
 void every_second_func(int signo)
 {
-	log_debug("timer tick every second\n");
+	log_debug("timer tick, current index %hu\n", srv->timer.current);
 	timer_tick(&srv->timer);
 
 	/* move alive connection */
@@ -56,9 +56,10 @@ void every_second_func(int signo)
 		allocator_free(&srv->packet_allocator, packet);
 
 		conn = get_conn_by_uin(srv, uin);
-		assert(conn);
-		timer_move(&srv->timer, conn);
-		log_debug("client %u is alive\n", conn->uin);
+		if (conn) {
+			timer_move(&srv->timer, conn);
+			log_debug("client %u is alive\n", conn->uin);
+		}
 	}
 
 	/* remove dead connection */
