@@ -15,6 +15,10 @@ void va_log(const char *level_str, const char *fmt, va_list args)
 	struct tm *timeinfo;
 	char buffer[64];
 
+	if (!log_fp) {
+		log_fp = stderr;
+	}
+
 	/* generate log time and level string */
 	time(&rawtime);
 	timeinfo = localtime(&rawtime);
