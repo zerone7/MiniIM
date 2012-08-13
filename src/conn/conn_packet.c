@@ -64,11 +64,11 @@ void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
-	/*if (conn->type != LOGIN_OK_CONNECTION &&
+	if (conn->type != LOGIN_OK_CONNECTION &&
 			command != CMD_LOGIN) {
-		close_connection(server, conn);
+		timer_remove_conn(server, conn);
 		allocator_free(&server->packet_allocator, packet);
-	}*/
+	}
 
 	switch (command) {
 	case CMD_KEEP_ALIVE:
@@ -183,9 +183,18 @@ void srv_packet_handler(struct conn_server *server, struct list_packet *packet)
 	}
 }
 
-/* TODO: need to complete */
 void srv_error(struct conn_server *server, struct list_packet *packet)
 {
+	uint32_t uin = get_uin_host(packet);
+	struct connection *conn = get_conn_by_uin(server, uin);
+	if (!conn) {
+		allocator_free(&server->packet_allocator, packet);
+		return;
+	}
+
+	conn->type = LOGIN_ERROR_CONNECTION;
+	list_add_tail(&packet->list, &conn->send_packet_list);
+	wait_for_write(server->efd, conn->sfd);
 }
 
 /* client login successful, we mark the conn as login_ok,
