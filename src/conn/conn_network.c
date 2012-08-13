@@ -282,7 +282,8 @@ static int read_handler(struct conn_server *server, int infd)
 			break;
 		} else if (count == 0) {
 			/* End of file, The remote has closed the connection */
-			err = true;
+			/* ignore this event, wait the timer close this socket */
+			break;
 		} else {
 			log_info("read %d bytes data from %d\n", count, infd);
 			if (read_packet(server, conn, buf, count) < 0) {
