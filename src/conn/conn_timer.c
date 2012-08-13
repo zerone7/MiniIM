@@ -52,6 +52,7 @@ void every_second_func(int signo)
 		packet = list_first_entry(alive_list, struct list_packet, list);
 		list_del(&packet->list);
 		uin = get_uin_host(packet);
+		/* NOTE: use shared data here, not recommendate */
 		allocator_free(&srv->packet_allocator, packet);
 
 		conn = get_conn_by_uin(srv, uin);
