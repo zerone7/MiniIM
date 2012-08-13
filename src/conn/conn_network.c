@@ -54,13 +54,13 @@ static int accept_handler(struct conn_server *server)
 				/* we have processed all incoming connections */
 				return 0;
 			} else {
-				log_warning("accept connection error\n");
+				log_warning("accept connection failed\n");
 				return -1;
 			}
 		}
 
 		if (set_nonblocking(infd) < 0) {
-			log_warning("set infd to nonblockint mode error\n");
+			log_warning("set infd to nonblockint mode failed\n");
 			close(infd);
 			return -1;
 		}
@@ -68,7 +68,7 @@ static int accept_handler(struct conn_server *server)
 		event.data.fd = infd;
 		event.events = EPOLLIN | EPOLLET;
 		if (epoll_ctl(server->efd, EPOLL_CTL_ADD, infd, &event) < 0) {
-			log_warning("add fd to monitor error\n");
+			log_warning("add fd to monitor failed\n");
 			close(infd);
 			return -1;
 		}
@@ -99,7 +99,13 @@ static int last_packet_incomplete(struct conn_server *server,
 	struct list_head *last = conn->recv_packet_list.prev;
 	struct list_packet *packet =
 		list_entry(last, struct list_packet, list);
-	int have_read = get_length_host(packet) - conn->expect_bytes;
+	int packet_length = get_length_host(packet);
+	if (packet_length > MAX_PACKET_LEN) {
+		log_err("packet length field is too big\n");
+		return -1;
+	}
+
+	int have_read = packet_length - conn->expect_bytes;
 	if (have_read < 0) {
 		log_err("imcomplete packet length wrong\n");
 		return -1;
@@ -133,7 +139,7 @@ static int last_packet_incomplete_1byte(struct conn_server *server,
 
 	int packet_length = ntohs(*((uint16_t *)conn->length));
 	if (packet_length > MAX_PACKET_LEN) {
-		log_err("packet length field is too git\n");
+		log_err("packet length field is too big\n");
 		return -1;
 	}
 
@@ -162,7 +168,7 @@ static int last_packet_complete(struct conn_server *server,
 	} else {
 		int packet_length = ntohs(*((uint16_t *)buf));
 		if (packet_length > MAX_PACKET_LEN) {
-			log_err("packet length field is too git\n");
+			log_err("packet length field is too big\n");
 			return -1;
 		}
 
@@ -218,7 +224,7 @@ static int read_packet(struct conn_server *server, struct connection *conn,
 }
 
 /* check this socket is server socket */
-static inline bool is_server_socket(struct conn_server *server, int fd)
+static inline bool is_server_socket(const struct conn_server *server, int fd)
 {
 	if (fd == server->user_conn.sfd ||
 			fd == server->contact_conn.sfd ||
@@ -295,6 +301,7 @@ static int read_handler(struct conn_server *server, int infd)
 
 	if (err) {
 		/* close connection */
+		/* TODO: use timer to close the connection */
 		if (conn) {
 			close_connection(server, conn);
 		} else {
@@ -310,6 +317,7 @@ static int read_handler(struct conn_server *server, int infd)
 }
 
 /* write data to socket */
+/* TODO: need to resolve error */
 static int write_handler(struct conn_server *server, int infd)
 {
 	int count;
