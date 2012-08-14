@@ -303,7 +303,7 @@ static int read_handler(struct conn_server *server, int infd)
 		/* close connection */
 		/* use timer to close the connection */
 		if (conn) {
-			timer_remove_conn(server, conn);
+			timer_mark_dead(server, conn);
 		} else {
 			close(infd);
 		}
@@ -411,7 +411,7 @@ int setup_epoll(struct conn_server *server, uint32_t max_events)
 		log_err("can not add sfd to monitored fd set\n");
 		return -1;
 	}
-	log_notice("add fd %d to epoll fd %d, mode %s\n",
+	log_notice("add socket %d to epoll %d, mode %s\n",
 			server->sfd, server->efd, "EPOLLIN | EPOLLET");
 
 	/* events buffer */
@@ -426,11 +426,12 @@ int epoll_loop(struct conn_server *server)
 	struct epoll_event *events = server->events;
 	int efd = server->efd;
 	int max_events = server->max_events;
+	const int epoll_timeout = 1000;	/* wait 1 second here */
 
 	/* the event loop */
 	while (1) {
 		int i, n;
-		n = epoll_wait(efd, events, max_events, -1);
+		n = epoll_wait(efd, events, max_events, epoll_timeout);
 		for (i = 0; i < n; i++) {
 			if ((events[i].events & EPOLLERR) ||
 					(events[i].events & EPOLLHUP)) {
@@ -457,6 +458,7 @@ int epoll_loop(struct conn_server *server)
 				log_warning("other event\n");
 			}
 		}
+		timer_expire_time(server);
 	}
 
 	free(events);

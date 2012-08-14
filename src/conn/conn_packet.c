@@ -27,8 +27,7 @@ void conn_destroy(struct conn_server *server, struct connection *conn)
 
 /* user logout, client timeout or something error, we need to
  * close the connection and release resource */
-static void close_connection(struct conn_server *server, struct connection *conn,
-		bool block_signal)
+void close_connection(struct conn_server *server, struct connection *conn)
 {
 	/* remove from fd-conn hash map */
 	int fd = conn->sfd;
@@ -39,29 +38,14 @@ static void close_connection(struct conn_server *server, struct connection *conn
 	hset_erase(&server->uin_conn_map, &conn->uin);
 
 	/* remove from timer */
-	if (block_signal) {
-		timer_del(conn);
-	} else {
-		__timer_del(conn);
-	}
+	timer_del(conn);
 	conn_destroy(server, conn);
 
 	/* free the conn struct */
 	allocator_free(&server->conn_allocator, conn);
 }
 
-void close_conn_block_signal(struct conn_server *server, struct connection *conn)
-{
-	return close_connection(server, conn, true);
-}
-
-void close_conn_unblock_signal(struct conn_server *server, struct connection *conn)
-{
-	return close_connection(server, conn, false);
-}
-
-static void send_offline_to_status(struct conn_server *server,
-		uint32_t uin, bool block_signal)
+void send_offline_to_status(struct conn_server *server, uint32_t uin)
 {
 	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
 	packet_init(packet);
@@ -71,26 +55,8 @@ static void send_offline_to_status(struct conn_server *server,
 	p->cmd = htons(CMD_STATUS_CHANGE);
 	p->uin = htonl(uin);
 	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);
-	if (block_signal) {
-		block_sigalarm();
-		list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
-		unblock_sigalarm();
-	} else {
-		list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
-	}
+	list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
 	wait_for_write(server->efd, server->status_conn.sfd);
-}
-
-void send_offline_block_signal(struct conn_server *server,
-		uint32_t uin)
-{
-	return send_offline_to_status(server, uin, true);
-}
-
-void send_offline_unblock_signal(struct conn_server *server,
-		uint32_t uin)
-{
-	return send_offline_to_status(server, uin, false);
 }
 
 /* client packet handler */
@@ -100,8 +66,9 @@ void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 	uint16_t command = get_command_host(packet);
 	if (conn->type != LOGIN_OK_CONNECTION &&
 			command != CMD_LOGIN) {
-		timer_remove_conn(server, conn);
+		/* the client not login, ignore this packet */
 		allocator_free(&server->packet_allocator, packet);
+		return;
 	}
 
 	switch (command) {
@@ -156,10 +123,10 @@ void cmd_logout(struct conn_server *server, struct connection *conn,
 {
 	uint32_t uin = get_uin_host(packet);
 	allocator_free(&server->packet_allocator, packet);
-	close_conn_block_signal(server, conn);
+	close_connection(server, conn);
 
 	/* send status change command to status server */
-	send_offline_block_signal(server, uin);
+	send_offline_to_status(server, uin);
 }
 
 /* we need to forward this packet to user server, so put it onto
@@ -202,8 +169,6 @@ void srv_packet_handler(struct conn_server *server, struct list_packet *packet)
 		break;
 	case SRV_SET_NICK_OK:
 	case SRV_ADD_CONTACT_WAIT:
-	case SRV_ADD_CONTACT_AUTH:
-	case SRV_ADD_CONTACT_REPLY:
 	case SRV_CONTACT_LIST:
 	case SRV_CONTACT_INFO_MULTI:
 	case SRV_MESSAGE:

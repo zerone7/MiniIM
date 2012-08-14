@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <signal.h>
 #include "conn_define.h"
 #include "conn_list.h"
 #include "conn_connection.h"
@@ -24,24 +23,6 @@ static inline void timer_tick(struct conn_timer *timer)
 	timer->current = (timer->current + 1) % timer->max_slots;
 }
 
-/* block singal alarm */
-static inline void block_sigalarm()
-{
-	sigset_t mask;
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGALRM);
-	sigprocmask(SIG_BLOCK, &mask, NULL);
-}
-
-/* unblock signal alarm */
-static inline void unblock_sigalarm()
-{
-	sigset_t mask;
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGALRM);
-	sigprocmask(SIG_UNBLOCK, &mask, NULL);
-}
-
 /* get current list head, they are timeouted */
 static inline struct list_head* get_timeout_list(struct conn_timer *timer)
 {
@@ -49,9 +30,8 @@ static inline struct list_head* get_timeout_list(struct conn_timer *timer)
 	return &timer->timer_slots[timer->current];
 }
 
-/* add a connection to timer, this function
- * should not be called in process context */
-static inline void __timer_add(struct conn_timer *timer, struct connection *conn)
+/* add a connection to timer */
+static inline void timer_add(struct conn_timer *timer, struct connection *conn)
 {
 	assert(timer && conn);
 	int timeout_seconds = timer->current + timer->max_slots - 1;
@@ -60,49 +40,22 @@ static inline void __timer_add(struct conn_timer *timer, struct connection *conn
 	list_add_tail(&conn->timer_list, &timer->timer_slots[insert_index]);
 }
 
-/* add a connection to timer, called in process context */
-static inline void timer_add(struct conn_timer *timer,
-		struct connection *conn)
-{
-
-	/* block the SIGALRM signal before call __timer_add */
-	block_sigalarm();
-
-	__timer_add(timer, conn);
-
-	/* unblock the SIGALRM signal after call __timer_add */
-	unblock_sigalarm();
-}
-
 /* delete a connection from timer */
-static inline void __timer_del(struct connection *conn)
+static inline void timer_del(struct connection *conn)
 {
 	assert(conn);
 	list_del(&conn->timer_list);
-	INIT_LIST_HEAD(&conn->timer_list);
-}
-
-/* delete a connection from timer, called in process context */
-static inline void timer_del(struct connection *conn)
-{
-	/* block the SIGALRM signal before call __timer_del */
-	block_sigalarm();
-
-	__timer_del(conn);
-
-	/* unblock the SIGALRM signal after call __timer_del */
-	unblock_sigalarm();
 }
 
 /* move a connection from one slot to another slot */
-static inline void timer_move(struct conn_timer *timer, struct connection *conn)
+static inline void timer_mark_alive(struct conn_timer *timer, struct connection *conn)
 {
 	assert(timer && conn);
-	__timer_del(conn);
-	__timer_add(timer, conn);
+	timer_del(conn);
+	timer_add(timer, conn);
 }
 
-static inline bool is_safe_conn(struct conn_timer *timer, struct connection *conn)
+static inline bool is_alive_conn(struct conn_timer *timer, struct connection *conn)
 {
 	if (conn->timer_slot > timer->current) {
 		return (conn->timer_slot - timer->current) > timer->delay;
@@ -113,9 +66,8 @@ static inline bool is_safe_conn(struct conn_timer *timer, struct connection *con
 }
 
 void timer_init(struct conn_timer *timer);
-void timer_remove_conn(struct conn_server *server, struct connection *conn);
-void every_second_func(int signo);
+void timer_mark_dead(struct conn_server *server, struct connection *conn);
 struct conn_server;
-extern struct conn_server *srv;
+void timer_expire_time(struct conn_server *server);
 
 #endif

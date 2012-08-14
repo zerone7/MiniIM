@@ -1,7 +1,4 @@
 #include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/time.h>
 #include "conn_timer.h"
 #include "conn_log.h"
 #include "conn_packet.h"
@@ -11,8 +8,6 @@
 void timer_init(struct conn_timer *timer)
 {
 	int i;
-	struct itimerval val;
-	struct sigaction action;
 
 	/* initialize list head */
 	assert(timer);
@@ -24,27 +19,13 @@ void timer_init(struct conn_timer *timer)
 	for (i = 0; i < timer->max_slots; i++) {
 		INIT_LIST_HEAD(&timer->timer_slots[i]);
 	}
-
-	/* register signal hanbler function */
-	action.sa_handler = every_second_func;
-	action.sa_flags = 0;
-	sigemptyset(&action.sa_mask);
-	sigaction(SIGALRM, &action, NULL);
-
-	/* initialize timer */
-	val.it_value.tv_sec = 1;
-	val.it_value.tv_usec = 0;
-	val.it_interval = val.it_value;
-	setitimer(ITIMER_REAL, &val, NULL);
 }
 
 /* mark the connection as 'unsafe', so we can't find it before delete it */
-void timer_remove_conn(struct conn_server *server, struct connection *conn)
+void timer_mark_dead(struct conn_server *server, struct connection *conn)
 {
-	block_sigalarm();
 	struct conn_timer *timer = &server->timer;
-	if (!is_safe_conn(timer, conn)) {
-		unblock_sigalarm();
+	if (!is_alive_conn(timer, conn)) {
 		return;
 	}
 
@@ -52,18 +33,17 @@ void timer_remove_conn(struct conn_server *server, struct connection *conn)
 	/* delay 4 seconds to delete it */
 	uint8_t new_index = (timer->current + 4) % timer->max_slots;
 	conn->timer_slot = new_index;
+	timer_del(conn);
 	list_add_tail(&conn->timer_list, &timer->timer_slots[new_index]);
-
-	unblock_sigalarm();
 }
 
 /* this function will be called every second */
-void every_second_func(int signo)
+void timer_expire_time(struct conn_server *server)
 {
-	timer_tick(&srv->timer);
+	timer_tick(&server->timer);
 
 	/* move alive connection */
-	struct list_head *alive_list = &srv->keep_alive_list;
+	struct list_head *alive_list = &server->keep_alive_list;
 	struct list_packet *packet;
 	struct connection *conn;
 	uint32_t uin;
@@ -72,20 +52,26 @@ void every_second_func(int signo)
 		list_del(&packet->list);
 		uin = get_uin_host(packet);
 		/* NOTE: use shared data here, not recommendate */
-		allocator_free(&srv->packet_allocator, packet);
+		allocator_free(&server->packet_allocator, packet);
 
-		conn = get_conn_by_uin_unblock(srv, uin);
+		conn = get_conn_by_uin(server, uin);
 		if (conn) {
-			timer_move(&srv->timer, conn);
+			timer_mark_alive(&server->timer, conn);
+			log_debug("client %u is alive\n", uin);
+		} else {
+			/* we can't get conn by uin, which means
+			 * the conn is already dead */
+			log_debug("client %u is already dead\n", uin);
 		}
 	}
 
 	/* remove dead connection */
-	struct list_head *timeout_list = get_timeout_list(&srv->timer);
+	struct list_head *timeout_list = get_timeout_list(&server->timer);
 	while (!list_empty(timeout_list)) {
 		conn = list_first_entry(timeout_list,
 				struct connection, timer_list);
-		send_offline_unblock_signal(srv, conn->uin);
-		close_conn_unblock_signal(srv, conn);
+		send_offline_to_status(server, conn->uin);
+		log_info("client %u is timeout\n", conn->uin);
+		close_connection(server, conn);
 	}
 }

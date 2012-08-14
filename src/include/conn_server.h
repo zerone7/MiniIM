@@ -45,19 +45,15 @@ static struct connection* get_conn_by_fd(struct conn_server *server, int fd)
 		return &server->message_conn;
 	}
 
-	block_sigalarm();
 	iterator_t it;
 	hset_find(&server->fd_conn_map, &fd, &it);
 	if (!it.ptr) {
-		unblock_sigalarm();
 		return NULL;
 	} else {
 		struct connection *conn = ((struct fd_entry *)it.data)->conn;
-		if (!is_safe_conn(&server->timer, conn)) {
-			unblock_sigalarm();
+		if (!is_alive_conn(&server->timer, conn)) {
 			return NULL;
 		} else {
-			unblock_sigalarm();
 			return conn;
 		}
 	}
@@ -66,32 +62,13 @@ static struct connection* get_conn_by_fd(struct conn_server *server, int fd)
 /* use uin to lookup conn, only return the _SAFE_ conn */
 static struct connection* get_conn_by_uin(struct conn_server *server, uint32_t uin)
 {
-	block_sigalarm();
 	iterator_t it;
 	hset_find(&server->uin_conn_map, &uin, &it);
 	if (!it.ptr) {
 		return NULL;
 	} else {
 		struct connection *conn = ((struct uin_entry *)it.data)->conn;
-		if (!is_safe_conn(&server->timer, conn)) {
-			unblock_sigalarm();
-			return NULL;
-		} else {
-			unblock_sigalarm();
-			return conn;
-		}
-	}
-}
-
-static struct connection* get_conn_by_uin_unblock(struct conn_server *server, uint32_t uin)
-{
-	iterator_t it;
-	hset_find(&server->uin_conn_map, &uin, &it);
-	if (!it.ptr) {
-		return NULL;
-	} else {
-		struct connection *conn = ((struct uin_entry *)it.data)->conn;
-		if (!is_safe_conn(&server->timer, conn)) {
+		if (!is_alive_conn(&server->timer, conn)) {
 			return NULL;
 		} else {
 			return conn;

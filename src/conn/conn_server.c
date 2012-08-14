@@ -67,43 +67,43 @@ int main(int argc, char *argv[])
 	/* connect to user server */
 	int fd;
 	if ((fd = connect_to_server(USER_IP, USER_PORT)) < 0) {
-		log_err("can not connect to user server (%s, %hu)\n",
+		log_err("can not connect to user server %s(%hu)\n",
 				USER_IP, USER_PORT);
 		return 0;
 	}
 	server.user_conn.sfd = fd;
-	log_notice("connect to user server (%s, %hu) success\n",
+	log_notice("connect to user server %s(%hu)\n",
 			USER_IP, USER_PORT);
 
 
 	/* connect to contact server */
 	if ((fd = connect_to_server(FRIEND_IP, FRIEND_PORT)) < 0) {
-		log_err("can not connect to contact server (%s, %hu)\n",
+		log_err("can not connect to contact server %s(%hu)\n",
 				FRIEND_IP, FRIEND_PORT);
 		return 0;
 	}
 	server.contact_conn.sfd = fd;
-	log_notice("connect to contact server (%s, %hu) success\n",
+	log_notice("connect to contact server %s(%hu)\n",
 			FRIEND_IP, FRIEND_PORT);
 
 	/* connect to status server */
 	if ((fd = connect_to_server(STATUS_IP, STATUS_PORT)) < 0) {
-		log_err("can not connect to status server (%s, %hu)\n",
+		log_err("can not connect to status server %s(%hu)\n",
 				STATUS_IP, STATUS_PORT);
 		return 0;
 	}
 	server.status_conn.sfd = fd;
-	log_notice("connect to status server (%s, %hu) success\n",
+	log_notice("connect to status server %s(%hu)\n",
 			STATUS_IP, STATUS_PORT);
 
 	/* connect to message server */
 	if ((fd = connect_to_server(MESSAGE_IP, MESSAGE_PORT)) < 0) {
-		log_err("can not connect to message server (%s, %hu)\n",
+		log_err("can not connect to message server %s(%hu)\n",
 				MESSAGE_IP, MESSAGE_PORT);
 		return 0;
 	}
 	server.message_conn.sfd = fd;
-	log_notice("connect to message server (%s, %hu) success\n",
+	log_notice("connect to message server %s(%hu)\n",
 			MESSAGE_IP, MESSAGE_PORT);
 
 	if (setup_socket(&server, CONN_SERVER_PORT) < 0) {
