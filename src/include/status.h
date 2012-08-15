@@ -30,6 +30,11 @@ struct status_info
     int con_ip;
 };
 
+struct user_status
+{
+    uint32_t uin;
+    uint16_t stat;
+}__attribute__((packed));
 
 int status_list_init();
 struct status_info * status_list_get();

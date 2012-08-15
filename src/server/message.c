@@ -13,7 +13,7 @@
 #define BUFSIZE         MAX_PACKET_LEN
 #define MSG_PARAMS_LEN  MAX_PACKET_LEN - PACKET_HEADER_LEN
 
-static int status_fd;
+static int listen_fd, status_fd, epfd;
 static struct con_info *conns;
 static struct msg_list *map[MAX_USER+1];
 
@@ -131,6 +131,9 @@ void get_status(int uin, struct packet *outpack)
     outpack->cmd = CMD_GET_STATUS;
     outpack->uin = uin;
     *(uint32_t *)outpack->params = uin;
+
+    msg_dbg("Sent get status request\n");
+    write(status_fd, outpack, outpack->len);
 }
 
 struct msg_list *new_msg(int uin, int timestamp, int type, int len, char *message)
@@ -212,11 +215,25 @@ int message_packet(struct packet *inpack, struct packet *outpack, int fd)
                 msg->next = NULL;
             map[uin] = msg;
             get_status(uin, outpack);
-            msg_dbg("Sent get status request\n");
-            write(status_fd, outpack, outpack->len);
-            //write(fd, "Wait", 5);
             break;
         case CMD_MSG_FRIEND: //好友相关的消息
+            msg_dbg("Chat_msg: from %d, to %d, len %d\n", inpack->uin, *PARAM_TO_UIN(inpack),\
+                    *PARAM_TYPE(inpack));
+            msg = new_msg(inpack->uin, *PARAM_TIMESTAMP(inpack), *PARAM_TYPE(inpack),\
+                    *PARAM_LENGTH(inpack), PARAM_MESSAGE(inpack));
+            if(!msg)
+                return -1;
+
+            uin = *PARAM_TO_UIN(inpack);
+            if(uin >= MAX_USER)
+                return -1;
+            /* 将消息挂到要发送的用户的消息队列中 */
+            if(map[uin])
+                msg->next = map[uin];
+            else
+                msg->next = NULL;
+            map[uin] = msg;
+            get_status(uin, outpack);
             break;
         case REP_STATUS:
             pstat = (uint16_t *)(inpack->params+8);
@@ -235,25 +252,64 @@ int message_packet(struct packet *inpack, struct packet *outpack, int fd)
     return 0;
 }
 
+int message_conn_init()
+{
+    struct epoll_event ev;
 
-#ifdef _MODULE_
+    listen_fd = service(MESSAGE, ACCEPT);
+    if(listen_fd < 0)
+        return -1;
+
+    while((status_fd = connect_to(STATUS)) < 0)
+    {
+        msg_dbg("wait for connection to Status\n");
+        sleep(2);
+    }
+
+    epfd = epoll_create(MAX_EVENTS);
+    if(epfd == -1)
+    {
+        msg_err("epoll_create error\n");
+        return -1;
+    }
+
+    ev.events = EPOLLIN;
+    ev.data.fd = listen_fd;
+    if(epoll_ctl(epfd, EPOLL_CTL_ADD, listen_fd, &ev) == -1)
+    {
+        msg_err("epoll_ctl error: listen_fd\n");
+        return -1;
+    }
+
+    ev.events = EPOLLIN;
+    ev.data.fd = status_fd;
+    if(epoll_ctl(epfd, EPOLL_CTL_ADD, status_fd, &ev) == -1)
+    {
+        msg_err("epoll_ctl error: status_fd\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+#ifndef _MODULE_
 void message()
 #else
 void main()
 #endif
 {
-    int listen_fd, tmpfd, client_fd, epfd, size, nfds, i, n, left, ret;
+    int  tmpfd, client_fd, size, nfds, i, n, left, ret;
     struct epoll_event ev, events[MAX_EVENTS];
     struct sockaddr_in client_addr;
     struct packet *inpack, *outpack;
+
+    msg_dbg("Message start: %d\n", getpid());
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
 
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
-
-    msg_dbg("Message start: %d\n", getpid());
 
     /* Init database connection */
     ret = message_db_init();
@@ -263,40 +319,13 @@ void main()
         goto exit;
     }
 
-    listen_fd = service(MESSAGE, ACCEPT);
-    if(listen_fd < 0)
-        goto exit;
-    msg_dbg("==> Message listened\n");
-
-    status_fd = connect_to(STATUS);
-    if(status_fd < 0)
+    ret = message_conn_init();
+    if(ret)
     {
-        msg_err("connect to status error\n");
+        msg_err("message connection init error\n"); 
         goto exit;
     }
-
-    epfd = epoll_create(MAX_EVENTS);
-    if(epfd == -1)
-    {
-        msg_err("epoll_create error\n");
-        goto exit;
-    }
-
-    ev.events = EPOLLIN;
-    ev.data.fd = listen_fd;
-    if(epoll_ctl(epfd, EPOLL_CTL_ADD, listen_fd, &ev) == -1)
-    {
-        msg_err("epoll_ctl error: listen_fd\n");
-        goto exit;
-    }
-
-    ev.events = EPOLLIN;
-    ev.data.fd = status_fd;
-    if(epoll_ctl(epfd, EPOLL_CTL_ADD, status_fd, &ev) == -1)
-    {
-        msg_err("epoll_ctl error: status_fd\n");
-        goto exit;
-    }
+    msg_dbg("==> Message listened, Status connected\n");
 
     for(;;)
     {
@@ -351,7 +380,7 @@ void main()
                 if(!strcmp((char *)inpack, "close"))
                     goto exit;
 
-                if(n = 0)
+                if(n == 0)
                 {
                     ev.data.fd = tmpfd;
                     epoll_ctl(epfd, EPOLL_CTL_DEL, tmpfd, &ev);
@@ -391,9 +420,8 @@ void main()
                         }
                     }   
                     
-                    if(message_packet(inpack, outpack, tmpfd))
-                        continue;
-                            
+                    /* 处理数据包 */
+                    message_packet(inpack, outpack, tmpfd);
                 }
             }
         }

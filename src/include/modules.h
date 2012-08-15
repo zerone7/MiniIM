@@ -16,7 +16,7 @@
 #include <errno.h>
 
 #define _INET_
-#define _MODULE_
+//#define _MODULE_
 
 #ifdef  _INET_
 /* Internet Socket */

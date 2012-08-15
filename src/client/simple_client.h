@@ -36,6 +36,7 @@
 #define CMD_MSG_FRIEND          0x1203
 #define REP_STATUS_CHANGED      0x2101
 #define REP_STATUS              0x2201
+#define CMD_FRIEND_ADD          0x1301
 
 /*
  * Message类型
@@ -99,6 +100,19 @@ struct packet
 	char        params[0];	// 参数
 }__attribute__((packed));
 
+struct status_info
+{
+    uint32_t uin;
+    uint16_t stat;
+}__attribute__((packed));
+
+struct contact_info
+{
+    uint32_t uin;
+    uint16_t stat;
+    uint16_t len;
+    char    nick[0];
+}__attribute__((packed));
 
 int connect_to(int module);
 void user_test();
@@ -106,3 +120,5 @@ void friend_test();
 void message_test();
 void get_offline_msgs(int client_sockfd, struct packet *recvpack);
 void status_test();
+void print_friend_list(int client_sockfd, struct packet *recvpack);
+void print_friend_info(int client_sockfd, struct packet *recvpack);

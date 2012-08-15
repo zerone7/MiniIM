@@ -15,7 +15,7 @@
 #define FRIEND_START    0x2
 #define MESSAGE_START   0x4
 #define STATUS_START    0x8
-#define PROCESS_MASK    USER_START 
+#define PROCESS_MASK    MESSAGE_START | FRIEND_START | STATUS_START
 
 int main()
 {
