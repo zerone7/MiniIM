@@ -70,12 +70,13 @@ void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	uint16_t command = get_command_host(packet);
-	if (conn->type != LOGIN_OK_CONNECTION &&
-			command != CMD_LOGIN) {
+	/* TODO: need to enable login type check */
+	/*if (conn->type != LOGIN_OK_CONNECTION &&
+			command != CMD_LOGIN) {*/
 		/* the client not login, ignore this packet */
-		allocator_free(&server->packet_allocator, packet);
+		/*allocator_free(&server->packet_allocator, packet);
 		return;
-	}
+	}*/
 
 	switch (command) {
 	case CMD_KEEP_ALIVE:
