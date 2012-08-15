@@ -18,7 +18,9 @@
 /* initialize logger, open log file */
 #define LOG_INIT(log_file)						\
 do {									\
-	log_fp = fopen(log_file, "w");					\
+	/* TODO: need to change to log to file */			\
+	log_fp = stdout;						\
+	/*log_fp = fopen(log_file, "w");*/				\
 	if (!log_fp) {							\
 		fprintf(stderr, "open log file %s failed\n", log_file);	\
 		log_fp = stdout;					\
