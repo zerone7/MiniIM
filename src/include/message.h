@@ -3,6 +3,7 @@
 #define PARAM_TO_UIN(x)         (uint32_t *)x->params
 #define PARAM_TIMESTAMP(x)      (uint32_t *)(x->params + 4)
 #define PARAM_LENGTH(x)         (uint16_t *)(x->params + 8)
+#define PARAM_TYPE(x)           (uint16_t *)(x->params + 8)
 #define PARAM_MESSAGE(x)        (char *) (x->params + 10)
 
 #define MSG_HEADER_LEN          12
@@ -12,7 +13,7 @@
     printf("MESSAGE: " format, ##arg);
 #else
 #define msg_dbg(format, arg...)             \
-({              g                           \
+({                                          \
     if(0)                                   \
         printf("MESSAGE: " format, ##arg);  \
     0;                                      \
@@ -44,6 +45,7 @@ struct con_info
     int             sockfd;
 };
 
+void message();
 int add_con(uint32_t ip, int sockfd);
 void del_con(int sockfd);
 int ip_to_fd(uint32_t ip);
@@ -52,4 +54,4 @@ struct msg_list *new_msg(int uin, int timestamp, int type, int len, char *messag
 int send_msg(int uin, uint32_t ip, struct packet *outpack);
 int store_offline_msg(int uin);
 int message_packet(struct packet *inpack, struct packet *outpack, int fd);
-void message();
+int message_conn_init();

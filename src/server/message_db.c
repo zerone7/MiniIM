@@ -14,10 +14,10 @@
 
 #define PARAM_HEADER_LEN        12
 
-MYSQL       mysql;
-MYSQL_RES   *result;
-MYSQL_ROW   row;
-int         rows;
+static MYSQL       mysql;
+static MYSQL_RES   *result;
+static MYSQL_ROW   row;
+static int         rows;
 
 int message_db_init()
 {

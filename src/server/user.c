@@ -14,7 +14,7 @@
 static struct packet *inpack, *outpack, *status_pack;
 static int  status_fd;
 
-#ifdef _MODULE_
+#ifndef _MODULE_
 void user()
 #else
 void main()
@@ -47,9 +47,11 @@ void main()
         goto exit;
     user_dbg("==> User listened\n");
 
-    status_fd = connect_to(STATUS);
-    if(status_fd < 0)
-        goto exit;
+    while((status_fd = connect_to(STATUS)) < 0)
+    {
+        user_err("wait for connection to status\n");
+        sleep(2);
+    }
 
     epfd = epoll_create(MAX_EVENTS);
     if(epfd == -1)
@@ -95,7 +97,8 @@ void main()
                     user_err("accept error\n");
                     goto exit;
                 }
-                user_dbg("client %s, port %d connected\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+                user_dbg("client %s, port %d connected\n", inet_ntoa(client_addr.sin_addr),\
+                        ntohs(client_addr.sin_port));
 
                 ev.events = EPOLLIN;
                 ev.data.fd = client_fd;
@@ -124,7 +127,7 @@ void main()
                 if(!strcmp((char *)inpack, "close"))
                     goto exit;
 
-                if(n = 0)
+                if(n == 0)
                 {
                     ev.data.fd = tmpfd;
                     epoll_ctl(epfd, EPOLL_CTL_DEL, tmpfd, &ev);
@@ -173,8 +176,6 @@ void main()
 
 exit:
     user_dbg("==> User process is going to exit !\n");
-    //free(inpack);
-    //free(outpack);
     user_db_close();
     close(listen_fd);
 }
@@ -238,7 +239,8 @@ int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
             }
             break;
         case CMD_SET_NICK:
-            user_dbg("UIN %d, nick: %s, nicklen %d\n", inpack->uin, PARAM_NICK(inpack), *PARAM_NICKLEN(inpack));
+            user_dbg("UIN %d, nick: %s, nicklen %d\n", inpack->uin, PARAM_NICK(inpack), \
+                    *PARAM_NICKLEN(inpack));
 
             pnick = PARAM_NICK(inpack);
             user_set_nick(inpack->uin, pnick);
@@ -250,6 +252,10 @@ int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
             outpack->ver = (uint16_t) 1;
             outpack->cmd = (uint16_t) SRV_SET_NICK_OK;
             outpack->uin = inpack->uin; 
+            break;
+        case CMD_FRIEND_ADD:
+            user_friend_add(inpack->uin);
+            return 1;
             break;
         default:
             return -1;

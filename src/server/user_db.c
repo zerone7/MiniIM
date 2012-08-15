@@ -5,9 +5,9 @@
 
 #include "user_db.h"
 
-MYSQL       mysql;
-MYSQL_RES   *result;
-MYSQL_ROW   row;
+static MYSQL       mysql;
+static MYSQL_RES   *result;
+static MYSQL_ROW   row;
 
 int user_db_init()
 {
@@ -74,7 +74,7 @@ int  user_set_passwd(int uin , char *passwd)
     ret = mysql_query(&mysql, query_str);
     if(ret)
     {
-        printf("Query Error: %s\n", mysql_error(&mysql));
+        printf("update Error: %s\n", mysql_error(&mysql));
         return -1;
     }
 
@@ -127,6 +127,20 @@ int user_set_nick(int uin, char *nick)
     sprintf(query_str,"update user set nick = '%s' where uin = %d", nick, uin); 
     ret = mysql_query(&mysql, query_str);
     if(ret)
+    {
+        printf("Query Error: %s\n", mysql_error(&mysql));
+        return -1;
+    }
+
+    return 0;
+}
+
+int user_friend_add(int uin)
+{
+    char query_str[100];
+
+    sprintf(query_str,"update user set contact_count = contact_count+1 where uin = %d", uin); 
+    if(mysql_query(&mysql, query_str))
     {
         printf("Query Error: %s\n", mysql_error(&mysql));
         return -1;

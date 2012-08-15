@@ -21,6 +21,8 @@ int main(int argc, char *argv[])
             status_test();
         else if(!strcmp(module, "message\n"))
             message_test();
+        else if(!strcmp(module, "friend\n"))
+            friend_test();
         else if(!strcmp(module, "exit\n"))
             break;
         else
@@ -83,11 +85,12 @@ void user_test()
 	int len, n;
     char cmd[20];
     char nick[] = "justanick";
-    struct packet *loginpack, *nickpack, *recvpack;
+    struct packet *loginpack, *nickpack, *recvpack, *addpack;
 
     loginpack = (struct packet *)malloc(BUFSIZE);
     nickpack = (struct packet *)malloc(BUFSIZE);
     recvpack = (struct packet *)malloc(BUFSIZE);
+    addpack = (struct packet *)malloc(BUFSIZE);
 
     sprintf(PARAM_PASSWD(loginpack), "10086");
     *PARAM_PASSLEN(loginpack) = 6;
@@ -133,7 +136,15 @@ void user_test()
             printf("Packet: len %d, cmd %04x, uin %d, params %04x.\n", recvpack->len, \
                     recvpack->cmd, recvpack->uin,*(int *)recvpack->params);
         }
-       else if(!strcmp(cmd, "nick\n"))
+        else if(!strcmp(cmd, "add\n"))
+        {
+            addpack->len = HEADER_LEN;
+            addpack->ver = 1;
+            addpack->cmd = CMD_FRIEND_ADD;
+            addpack->uin = 11111;
+            send(client_sockfd, addpack, addpack->len, 0);
+        }
+        else if(!strcmp(cmd, "nick\n"))
         {
             send(client_sockfd, nickpack, nickpack->len, 0);
             n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
@@ -160,12 +171,13 @@ void user_test()
 void status_test()
 {
 	int client_sockfd;
-	int len, n;
-    uint32_t uin, *pip;
+	int len, n, i;
+    uint32_t uin, *pip, *uins;
     uint16_t *pstat, stat;
     char cmd[20];
     char *pcmd;
     struct packet *gstatpack, *sstatpack, *recvpack;
+    struct status_info *multi_stat;
     struct sockaddr_in addr;
     socklen_t   addrlen;
 
@@ -194,14 +206,41 @@ void status_test()
             gstatpack->ver = 1;
             gstatpack->cmd = CMD_GET_STATUS;
             *(uint32_t *)gstatpack->params = uin;
-            
 		    send(client_sockfd, gstatpack, gstatpack->len, 0);
+
             n = recv(client_sockfd, recvpack, BUFSIZE, 0);
             pip = PARAM_IP(recvpack);
             pstat = PARAM_TYPE(recvpack);
             printf("Packet receive %d bytes -------------->\n", n);
             printf("Packet: len %d, cmd %04x, uin %d, stat %d, ip %d.\n", \
                     recvpack->len, recvpack->cmd, recvpack->uin, *pstat, *pip);
+        }
+        else if(!strcmp(pcmd, "mstat\n"))
+        {
+            gstatpack->uin = (uint32_t)10000;
+            gstatpack->ver = 1;
+            gstatpack->cmd = CMD_MULTI_STATUS;
+            n = 10;
+            *(uint16_t *)gstatpack->params = (uint16_t)n;
+            printf("%d uins to send\n", *(uint16_t *)gstatpack->params);
+            uins = (uint32_t *)(gstatpack->params + 2);
+
+            for(i = 0; i < n; i++)
+            {
+                uins[i] = 10000+i;
+            //    printf("user: %d, ", uins[i]);
+            }
+            gstatpack->len = HEADER_LEN + 2 + 4*n;
+		    send(client_sockfd, gstatpack, gstatpack->len, 0);
+
+            n = recv(client_sockfd, recvpack, BUFSIZE, 0);
+            printf("Packet receive %d bytes -------------->\n", n);
+            printf("Packet: len %d, cmd %04x, uin %d.\n", recvpack->len, \
+                    recvpack->cmd, recvpack->uin);
+            n = *(uint16_t *)recvpack->params; 
+            multi_stat = (struct status_info *)(recvpack->params + 2);
+            for(i = 0; i < n; i++)
+                printf("user: %d, status: %d\n", multi_stat[i].uin, multi_stat[i].stat);
         }
         else if(!strcmp(pcmd, "sstat"))
         {
@@ -223,8 +262,8 @@ void status_test()
             stat = atoi(pcmd);
             pstat = PARAM_TYPE(sstatpack);
             *pstat = stat ? 1 : 0;
-
             send(client_sockfd, sstatpack, sstatpack->len, 0);
+
             n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
             printf("receive %d bytes\n", n);
             printf("Packet: len %d, cmd %04x, uin %d\n", recvpack->len, \
@@ -288,6 +327,7 @@ void message_test()
             offlinepack->cmd = CMD_OFFLINE_MSG;
             
 		    send(client_sockfd, offlinepack, offlinepack->len, 0);
+
             get_offline_msgs(client_sockfd, recvpack);
         }
         else if(!strcmp(pcmd, "chat"))
@@ -372,5 +412,149 @@ void get_offline_msgs(int client_sockfd, struct packet *recvpack)
 
         if(recvpack->cmd == SRV_OFFLINE_MSG_DONE)
             done = 1;
+    }
+}
+
+void friend_test()
+{
+	int client_sockfd;
+	int len, n;
+    uint32_t uin, *pip, *puin;
+    uint16_t *pstat, stat, *pcount;
+    char cmd[20];
+    char *pcmd;
+    struct packet *listpack, *infopack, *recvpack, *packet;
+    struct sockaddr_in addr;
+    socklen_t   addrlen;
+
+    listpack = (struct packet *)malloc(BUFSIZE);
+    infopack = (struct packet *)malloc(BUFSIZE);
+    recvpack = (struct packet *)malloc(BUFSIZE);
+    packet = (struct packet *)malloc(BUFSIZE);
+
+    client_sockfd = connect_to(FRIEND);
+    if(client_sockfd < 0)
+    {
+        printf("connect to FRIEND error\n");
+        exit(-1);
+    }
+
+    getsockname(client_sockfd, (struct sockaddr *)&addr, &addrlen); 
+	printf("connected to server FRIEND, my ip %d\n", (int)addr.sin_addr.s_addr);
+
+    while(fgets(cmd, 20, stdin))
+    {
+        pcmd = strtok(cmd, " ");
+        if(!strcmp(pcmd, "list"))
+        {
+            pcmd = strtok(NULL, " ");
+            uin = atoi(pcmd);
+            listpack->uin = uin;
+            listpack->len = HEADER_LEN;
+            listpack->ver = 1;
+            listpack->cmd = CMD_CONTACT_LIST;
+		    send(client_sockfd, listpack, listpack->len, 0);
+
+            print_friend_list(client_sockfd, recvpack);
+        }
+        else if(!strcmp(pcmd, "info\n"))
+        {
+            infopack->uin = 7777;
+            infopack->len = HEADER_LEN + 2 + 5*4;
+            infopack->ver = 1;
+            infopack->cmd = CMD_CONTACT_INFO_MULTI;
+            pcount = (uint16_t *)infopack->params;
+            *pcount = 5;
+            puin = (uint32_t *)(infopack->params + 2);
+            puin[0] = 10086;
+            puin[1] = 10010;
+            puin[2] = 10000;
+            puin[3] = 519;
+            puin[4] = 11111;
+            send(client_sockfd, infopack, infopack->len, 0);
+
+            print_friend_info(client_sockfd, recvpack);
+        }
+        else if(!strcmp(pcmd, "add"))
+        {
+            pcmd = strtok(NULL, " ");
+            uin = atoi(pcmd);
+            packet->uin = 7777;   
+            packet->len = HEADER_LEN + 4;
+            packet->ver = 1;
+            packet->cmd = CMD_ADD_CONTACT;
+            *(uint32_t *)packet->params = uin;
+            send(client_sockfd, packet, packet->len, 0);
+            
+            n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
+            printf("receive %d bytes\n", n);
+            printf("Packet: len %d, cmd %04x, uin %d\n", recvpack->len, \
+                    recvpack->cmd, recvpack->uin);
+            printf("Friend: uin %d, nicklen %d, nick %s\n", *(uint32_t *)recvpack->params, \
+                    *(uint16_t *)(recvpack->params+4), (char *)recvpack->params+6);
+
+        }
+        else if(!strcmp(pcmd, "reply"))
+        {
+            pcmd = strtok(NULL, " ");
+            uin = atoi(pcmd);
+            packet->len = HEADER_LEN + 6;
+            packet->ver = 1;
+            packet->cmd = CMD_ADD_CONTACT_REPLY;
+            packet->uin = uin;
+
+            pcmd = strtok(NULL, " ");
+            uin = atoi(pcmd);
+            *(uint32_t *)packet->params = uin;
+            *(uint16_t *)(packet->params + 4) = 1;
+            printf("Reply: from %d, to %d, reply_type %d\n", packet->uin, uin, 1); 
+            send(client_sockfd, packet, packet->len, 0);
+        }
+        else if(!strcmp(pcmd, "srv\n"))
+        {
+            send(client_sockfd, "close", 6, 0);
+            break;
+        }
+        else if(!strcmp(pcmd, "exit\n"))
+            break;
+        else
+            printf("Unknown command!\n");
+
+    }
+
+	close(client_sockfd);//关闭套接字
+}
+            
+void print_friend_list(int client_sockfd, struct packet *recvpack)
+{
+    int n, count, i;
+    uint32_t *friend_list;
+
+    n = recv(client_sockfd, recvpack, BUFSIZE, 0);
+    count = *(uint16_t *)recvpack->params;
+    printf("There are %d friends, they are=>\n", count);
+
+    friend_list = (uint32_t *)(recvpack->params + 2);
+    for(i = 0; i < count; i++)
+        printf("%d, ", friend_list[i]);
+    printf("\n");
+}
+
+void print_friend_info(int client_sockfd, struct packet *recvpack)
+{
+    int n, count, i;
+    struct contact_info *friend;
+    char *start;
+
+    n = recv(client_sockfd, recvpack, BUFSIZE, 0);
+    count = *(uint16_t *)recvpack->params;
+    printf("There are %d friends.\n", count);
+
+    start = recvpack->params + 2;
+    for(i = 0; i < count; i++)
+    {
+        friend = (struct contact_info *)start;
+        printf("user(%d): stat %d, len %d, nick '%s'\n", friend->uin, friend->stat, friend->len, friend->nick);
+        start += 8 + friend->len;
     }
 }

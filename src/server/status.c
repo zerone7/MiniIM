@@ -54,9 +54,10 @@ void status_list_put(struct status_info *info)
 
 int status_packet(struct packet *inpack, struct packet *outpack)
 {
-    uint32_t *pcon_ip, uin, *puin;
-    uint16_t *ptype;
+    uint32_t *pcon_ip, uin, *puin, *uins;
+    uint16_t *ptype, num;
     struct status_info *info;
+    struct user_status *multi_stat;
 
     stat_dbg("Status_packet: processing packet --->\n");
 
@@ -120,6 +121,24 @@ int status_packet(struct packet *inpack, struct packet *outpack)
             outpack->cmd = REP_STATUS;
             outpack->uin = inpack->uin;
             break;
+        case CMD_MULTI_STATUS:
+            num = *(uint16_t *)inpack->params;
+            uins = (uint32_t *) (inpack->params + 2);
+            stat_dbg("%d uins to got status\n", num);
+            outpack->len = PACKET_HEADER_LEN + 2 + num*6;
+            outpack->ver = 1;
+            outpack->cmd = REP_MULTI_STATUS;
+            outpack->uin = inpack->uin;
+            *(uint16_t *)outpack->params = num;
+            multi_stat = (struct user_status *)(outpack->params + 2);
+            while(num)
+            {
+                uin = uins[num-1];
+                multi_stat[num-1].uin = uin;
+                multi_stat[num-1].stat = map[uin] ? 1 : 0;
+                num--;
+            }
+            break;
         default:
             return -1;
     }
@@ -127,7 +146,7 @@ int status_packet(struct packet *inpack, struct packet *outpack)
     return 0;
 }
 
-#ifdef _MODULE_
+#ifndef _MODULE_
 void status()
 #else
 void main()
@@ -147,17 +166,20 @@ void main()
 
     stat_dbg("Status start: %d\n", getpid());
 
+    listen_fd = service(STATUS, ACCEPT);
+    if(listen_fd < 0)
+    {
+        stat_dbg("listen fd error\n");
+        return;
+    }
+    stat_dbg("==> Status listened\n");
+
     /* Init database connection */
     if(status_list_init())
     {
         stat_dbg("status_list_init failed !\n");
         goto exit;
     }
-
-    listen_fd = service(STATUS, ACCEPT);
-    if(listen_fd < 0)
-        goto exit;
-    stat_dbg("==> Status listened\n");
 
     epfd = epoll_create(MAX_EVENTS);
     if(epfd == -1)
@@ -225,7 +247,7 @@ void main()
                 if(!strcmp((char *)inpack, "close"))
                     goto exit;
 
-                if(n = 0)
+                if(n == 0)
                 {
                     ev.data.fd = tmpfd;
                     epoll_ctl(epfd, EPOLL_CTL_DEL, tmpfd, &ev);
@@ -281,5 +303,4 @@ exit:
    // free(inpack);
    // free(outpack);
     close(listen_fd);
-    
 }

@@ -41,6 +41,8 @@
 #define CMD_MSG_FRIEND          0x1203
 #define REP_STATUS_CHANGED      0x2101
 #define REP_STATUS              0x2201
+#define REP_MULTI_STATUS        0x2202
+#define CMD_FRIEND_ADD          0x1301
 
 /*
  * Message¿‡–Õ
@@ -49,7 +51,6 @@
 #define MSG_TYPE_ACCEPT         2
 #define MSG_TYPE_REFUSE         3
 #define MSG_TYPE_CHAT           4
-#define MSG_TYPE_AUTH           5
 
 #define MAX_PACKET_LEN          5018  
 #define PACKET_HEADER_LEN       12
