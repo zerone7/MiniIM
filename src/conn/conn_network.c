@@ -137,7 +137,9 @@ static int last_packet_incomplete_1byte(struct conn_server *server,
 	int read_bytes = 1;
 	memcpy(conn->length + 1, buf, read_bytes);
 
-	int packet_length = ntohs(*((uint16_t *)conn->length));
+	/* TODO: need to change to network byte order */
+	int packet_length = (*((uint16_t *)conn->length));
+	//int packet_length = ntohs(*((uint16_t *)conn->length));
 	if (packet_length > MAX_PACKET_LEN) {
 		log_err("packet length field %#hx is too big\n", packet_length);
 		return -1;
@@ -166,7 +168,9 @@ static int last_packet_complete(struct conn_server *server,
 		conn->length_incomplete = true;
 		memcpy(conn->length, buf, read_bytes);
 	} else {
-		int packet_length = ntohs(*((uint16_t *)buf));
+		/* TODO: need to change to network byte order */
+		int packet_length = (*((uint16_t *)buf));
+		//int packet_length = ntohs(*((uint16_t *)buf));
 		if (packet_length > MAX_PACKET_LEN) {
 			log_err("packet length field %#hx is too big\n", packet_length);
 			return -1;
