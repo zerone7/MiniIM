@@ -17,6 +17,22 @@
 #include "conn_network.h"
 #include "conn_connection.h"
 
+static inline void get_conn_str(const struct conn_server *server,
+		int fd, char *str)
+{
+	if (fd == server->user_conn.sfd) {
+		strcpy(str, "user");
+	} else if (fd == server->contact_conn.sfd) {
+		strcpy(str, "friend");
+	} else if (fd == server->status_conn.sfd) {
+		strcpy(str, "status");
+	} else if (fd == server->message_conn.sfd) {
+		strcpy(str, "message");
+	} else {
+		strcpy(str, "client");
+	}
+}
+
 /* create listen socket, and bind it to the port */
 static int create_and_bind(uint16_t port)
 {
@@ -118,9 +134,14 @@ static int last_packet_incomplete(struct conn_server *server,
 		conn->expect_bytes -= count;
 	} else {
 		conn->expect_bytes = 0;
-		log_debug("read %d bytes from client %u, command %#hx\n",
-				get_length_host(packet), conn->uin,
-				get_command_host(packet));
+		char str[16];
+		memset(str, 0, sizeof(str));
+		get_conn_str(server, conn->sfd, str);
+		log_debug("recv packet len %hu, cmd %#hx, uin %u from %s\n",
+				get_length_host(packet),
+				get_command_host(packet),
+				get_uin_host(packet),
+				str);
 	}
 
 	return read_bytes;
@@ -184,9 +205,14 @@ static int last_packet_complete(struct conn_server *server,
 		if (count < packet_length) {
 			conn->expect_bytes = packet_length - read_bytes;
 		} else {
-			log_debug("read %d bytes from client %u, command %#hx\n",
-					get_length_host(packet), conn->uin,
-					get_command_host(packet));
+			char str[16];
+			memset(str, 0, sizeof(str));
+			get_conn_str(server, conn->sfd, str);
+			log_debug("recv packet len %hu, cmd %#hx, uin %u from %s\n",
+					get_length_host(packet),
+					get_command_host(packet),
+					get_uin_host(packet),
+					str);
 		}
 
 		list_add_tail(&packet->list, &conn->recv_packet_list);
@@ -358,8 +384,14 @@ static int write_handler(struct conn_server *server, int infd)
 			if (count != length) {
 				log_warning("can not write a whole packet\n");
 			}
-			log_debug("write %d bytes data to %d, command %#hx\n",
-					count, infd, get_command_host(packet));
+			char str[16];
+			memset(str, 0, sizeof(str));
+			get_conn_str(server, conn->sfd, str);
+			log_debug("send packet len %hu, cmd %#hx, uin %u to %s\n",
+					get_length_host(packet),
+					get_command_host(packet),
+					get_uin_host(packet),
+					str);
 			allocator_free(&server->packet_allocator, packet);
 		}
 	}
@@ -462,7 +494,8 @@ int epoll_loop(struct conn_server *server)
 				log_warning("other event\n");
 			}
 		}
-		timer_expire_time(server);
+		/* TODO: need to enable timer */
+		//timer_expire_time(server);
 	}
 
 	free(events);
