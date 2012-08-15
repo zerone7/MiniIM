@@ -225,7 +225,8 @@ void srv_other_packet(struct conn_server *server, struct list_packet *packet)
 {
 	uint32_t uin = get_uin_host(packet);
 	struct connection *conn = get_conn_by_uin(server, uin);
-	if (!conn || conn->type != LOGIN_OK_CONNECTION) {
+	/* TODO: need to check login status */
+	if (!conn /*|| conn->type != LOGIN_OK_CONNECTION*/) {
 		allocator_free(&server->packet_allocator, packet);
 		return;
 	}
