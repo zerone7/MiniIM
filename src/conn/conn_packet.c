@@ -50,11 +50,17 @@ void send_offline_to_status(struct conn_server *server, uint32_t uin)
 	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
 	packet_init(packet);
 	struct packet *p = &packet->packet;
-	p->len = htons(18);
+	/* TODO: need to change to network byte order */
+	p->len = (18);
+	p->ver = (0x01);
+	p->cmd = (CMD_STATUS_CHANGE);
+	p->uin = (uin);
+	*((uint16_t *)(p + 16)) = (STATUS_CHANGE_OFFLINE);
+	/*p->len = htons(18);
 	p->ver = htons(0x01);
 	p->cmd = htons(CMD_STATUS_CHANGE);
 	p->uin = htonl(uin);
-	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);
+	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);*/
 	list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
 	wait_for_write(server->efd, server->status_conn.sfd);
 }

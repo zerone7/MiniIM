@@ -101,7 +101,7 @@ static int last_packet_incomplete(struct conn_server *server,
 		list_entry(last, struct list_packet, list);
 	int packet_length = get_length_host(packet);
 	if (packet_length > MAX_PACKET_LEN) {
-		log_err("packet length field is too big\n");
+		log_err("packet length field %#hx is too big\n", packet_length);
 		return -1;
 	}
 
@@ -139,7 +139,7 @@ static int last_packet_incomplete_1byte(struct conn_server *server,
 
 	int packet_length = ntohs(*((uint16_t *)conn->length));
 	if (packet_length > MAX_PACKET_LEN) {
-		log_err("packet length field is too big\n");
+		log_err("packet length field %#hx is too big\n", packet_length);
 		return -1;
 	}
 
@@ -168,7 +168,7 @@ static int last_packet_complete(struct conn_server *server,
 	} else {
 		int packet_length = ntohs(*((uint16_t *)buf));
 		if (packet_length > MAX_PACKET_LEN) {
-			log_err("packet length field is too big\n");
+			log_err("packet length field %#hx is too big\n", packet_length);
 			return -1;
 		}
 
