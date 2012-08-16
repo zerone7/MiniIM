@@ -76,7 +76,7 @@ static int accept_handler(struct conn_server *server)
 		}
 
 		if (set_nonblocking(infd) < 0) {
-			log_warning("set infd to nonblockint mode failed\n");
+			log_warning("set socket %d to nonblockint mode failed\n", infd);
 			close(infd);
 			return -1;
 		}
@@ -84,7 +84,7 @@ static int accept_handler(struct conn_server *server)
 		event.data.fd = infd;
 		event.events = EPOLLIN | EPOLLET;
 		if (epoll_ctl(server->efd, EPOLL_CTL_ADD, infd, &event) < 0) {
-			log_warning("add fd to monitor failed\n");
+			log_warning("add socket %d to monitor failed\n", infd);
 			close(infd);
 			return -1;
 		}
@@ -294,6 +294,19 @@ static void read_process_packet(struct conn_server *server,
 	}
 }
 
+static inline void close_fd(struct conn_server *server, int fd)
+{
+	struct connection *conn = get_conn_by_fd(server, fd);
+	if (conn) {
+		log_info("close conn with client %u, socket %d\n",
+				conn->uin, conn->sfd);
+		timer_mark_dead(server, conn);
+	} else {
+		log_info("close socket %d directly\n", fd);
+		close(fd);
+	}
+}
+
 /* read data from the socket */
 static int read_handler(struct conn_server *server, int infd)
 {
@@ -332,11 +345,7 @@ static int read_handler(struct conn_server *server, int infd)
 	if (err) {
 		/* close connection */
 		/* use timer to close the connection */
-		if (conn) {
-			timer_mark_dead(server, conn);
-		} else {
-			close(infd);
-		}
+		close_fd(server, infd);
 	} else {
 		log_debug("start processing packets for client %u\n", conn->uin);
 		read_process_packet(server, conn);
@@ -356,7 +365,7 @@ static int write_handler(struct conn_server *server, int infd)
 	/* use fd to find connection */
 	struct connection *conn = get_conn_by_fd(server, infd);
 	if (!conn) {
-		log_err("can not find conn by %d\n", infd);
+		log_err("can not find conn by socket %d\n", infd);
 		return -1;
 	}
 
@@ -439,7 +448,7 @@ int setup_epoll(struct conn_server *server, uint32_t max_events)
 		log_err("create epoll monitor fd failed\n");
 		return -1;
 	}
-	log_notice("create epoll fd %d\n", server->efd);
+	log_notice("create epoll %d\n", server->efd);
 
 	event.data.fd = server->sfd;
 	event.events = EPOLLIN | EPOLLET;
@@ -474,7 +483,7 @@ int epoll_loop(struct conn_server *server)
 				/* an error has occured on this fd */
 				/* TODO: need to handle error, listen fd and conn fd */
 				log_err("epoll error\n");
-				close(events[i].data.fd);
+				close_fd(server, events[i].data.fd);
 				continue;
 			} else if (server->sfd == events[i].data.fd) {
 				/* one or more incoming connections */
@@ -484,11 +493,13 @@ int epoll_loop(struct conn_server *server)
 				}
 			} else if (events[i].events & EPOLLIN) {
 				/* we have data on the fd waiting to be read */
-				log_info("start reading data from fd %d\n", events[i].data.fd);
+				log_info("handle EPOLLIN event on socket %d\n",
+						events[i].data.fd);
 				read_handler(server, events[i].data.fd);
 			} else if (events[i].events & EPOLLOUT) {
 				/* write buffer is available */
-				log_info("start writing data to fd %d\n", events[i].data.fd);
+				log_info("handle EPOLLOUT event on socket %d\n",
+						events[i].data.fd);
 				write_handler(server, events[i].data.fd);
 			} else {
 				log_warning("other event\n");

@@ -35,6 +35,9 @@ void timer_mark_dead(struct conn_server *server, struct connection *conn)
 	conn->timer_slot = new_index;
 	timer_del(conn);
 	list_add_tail(&conn->timer_list, &timer->timer_slots[new_index]);
+	close(conn->sfd);
+	hset_erase(&server->fd_conn_map, &conn->sfd);
+	hset_erase(&server->uin_conn_map, &conn->uin);
 }
 
 /* this function will be called every second */
