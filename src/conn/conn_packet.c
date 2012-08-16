@@ -128,12 +128,11 @@ void cmd_login(struct conn_server *server, struct connection *conn,
 void cmd_logout(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
-	uint32_t uin = get_uin_host(packet);
 	allocator_free(&server->packet_allocator, packet);
-	close_connection(server, conn);
 
 	/* send status change command to status server */
-	send_offline_to_status(server, uin);
+	send_offline_to_status(server, get_uin_host(packet));
+	close_connection(server, conn);
 }
 
 /* we need to forward this packet to user server, so put it onto

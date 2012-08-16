@@ -13,7 +13,6 @@ struct conn_timer {
 	struct list_head *timer_slots;
 	uint8_t current;
 	uint8_t max_slots;
-	uint8_t delay;
 };
 
 /* timer tick, simply increase current, call this once each second */
@@ -55,18 +54,7 @@ static inline void timer_mark_alive(struct conn_timer *timer, struct connection 
 	timer_add(timer, conn);
 }
 
-static inline bool is_alive_conn(struct conn_timer *timer, struct connection *conn)
-{
-	if (conn->timer_slot > timer->current) {
-		return (conn->timer_slot - timer->current) > timer->delay;
-	} else {
-		return (conn->timer_slot + timer->max_slots -
-				timer->current) > timer->delay;
-	}
-}
-
 void timer_init(struct conn_timer *timer);
-void timer_mark_dead(struct conn_server *server, struct connection *conn);
 struct conn_server;
 void timer_expire_time(struct conn_server *server);
 
