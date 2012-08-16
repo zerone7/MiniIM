@@ -270,21 +270,11 @@ static inline bool is_server_socket(const struct conn_server *server, int fd)
 static void read_process_packet(struct conn_server *server,
 		struct connection *conn)
 {
-	/* remove all packet from connection */
-	struct list_head new_head;
 	struct list_head *head = &conn->recv_packet_list;
-	if (conn->expect_bytes > 0) {
-		/* last packet is incomplete, ignore it */
-		struct list_head *last_complete = head->prev->prev;
-		list_cut_position(&new_head, head, last_complete);
-	} else {
-		list_replace_init(head, &new_head);
-	}
-
 	/* process all packet on list */
-	while (!list_empty(&new_head)) {
+	while (!list_empty(head)) {
 		struct list_packet *first =
-			list_first_entry(&new_head, struct list_packet, list);
+			list_first_entry(head, struct list_packet, list);
 		list_del(&first->list);
 		if (is_server_socket(server, conn->sfd)) {
 			srv_packet_handler(server, first);
@@ -370,12 +360,10 @@ static int write_handler(struct conn_server *server, int infd)
 	}
 
 	/* remove all packet from connection */
-	struct list_head new_head;
 	struct list_head *head = &conn->send_packet_list;
-	list_replace_init(head, &new_head);
-	while (!list_empty(&new_head)) {
+	while (!list_empty(head)) {
 		struct list_packet *packet =
-			list_first_entry(&new_head, struct list_packet, list);
+			list_first_entry(head, struct list_packet, list);
 		list_del(&packet->list);
 
 		uint16_t length = get_length_host(packet);
