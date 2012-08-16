@@ -1,18 +1,41 @@
-Target = server
+TARGET = server
+USER = user
+STATUS = status
+FRIEND = friend
+MESSAGE = message
+
 CC = gcc
-CFLAGS = -I../include
-vpath %.h ../include
+INCDIR = ../include/
+SRC = $(wildcard *.c)
+HDRS = $(wildcard $(INCDIR)*.h)
+LIBS = -lmysqlclient
+DEFS = -D_MODULE_
+CFLAGS = -I$(INCDIR)
+VPATH = $(INCDIR) #vpath %.h ../include
 
-mainobj = main.o message.o user.o friend.o status.o modules.o user_db.o message_db.o friend_db.o
+MAINOBJ = $(SRC:.c=.o)
+USEROBJ = user.o user_db.o modules.o
+STATOBJ = status.o modules.o
+FRDOBJ = friend.o friend_db.o modules.o
+MSGOBJ = message.o message_db.o modules.o
 
-.PHONY: all
+.PHONY: all clean mclean
 all: main
 
-$(mainobj):	message.h user.h friend.h status.h protocol.h modules.h user_db.h message_db.h friend_db.h
+main: $(MAINOBJ)
+	$(CC) -o $(TARGET) $(MAINOBJ) $(LIBS) 
 
-main: $(mainobj)
-	$(CC) -o $(Target) $(mainobj) -lmysqlclient
+$(MAINOBJ): $(HDRS)
 
-.PHONY: clean
+modules: CFLAGS = -I$(INCDIR) $(DEFS) 
+modules: $(USEROBJ) $(STATOBJ) $(FRDOBJ) $(MSGOBJ)
+	$(CC) -o $(USER) $(USEROBJ) $(LIBS)
+	$(CC) -o $(STATUS) $(STATOBJ) $(LIBS)
+	$(CC) -o $(FRIEND) $(FRDOBJ) $(LIBS)
+	$(CC) -o $(MESSAGE) $(MSGOBJ) $(LIBS)
+
 clean:
 	-rm *.o server
+
+mclean:
+	-rm *.o $(USER) $(STATUS) $(FRIEND) $(MESSAGE)
