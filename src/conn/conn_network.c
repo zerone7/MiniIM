@@ -108,7 +108,8 @@ static int last_packet_incomplete(struct conn_server *server,
 		struct connection *conn, const char *buf, int count)
 {
 	if (list_empty(&conn->recv_packet_list)) {
-		log_err("incomplete packet missing\n");
+		log_warning("incomplete packet missing\n");
+		conn->expect_bytes = 0;
 		return -1;
 	}
 
@@ -116,14 +117,22 @@ static int last_packet_incomplete(struct conn_server *server,
 	struct list_packet *packet =
 		list_entry(last, struct list_packet, list);
 	int packet_length = get_length_host(packet);
-	if (packet_length > MAX_PACKET_LEN) {
-		log_err("packet length field %#hx is too big\n", packet_length);
+	if (packet_length < PACKET_HEADER_LEN) {
+		log_warning("packet length field %d is too small\n",
+				packet_length);
+		conn->expect_bytes = 0;
+		return -1;
+	} else if (packet_length > MAX_PACKET_LEN) {
+		log_warning("packet length field %d is too big\n",
+				packet_length);
+		conn->expect_bytes = 0;
 		return -1;
 	}
 
 	int have_read = packet_length - conn->expect_bytes;
 	if (have_read < 0) {
-		log_err("imcomplete packet length wrong\n");
+		log_warning("imcomplete packet length wrong\n");
+		conn->expect_bytes = 0;
 		return -1;
 	}
 
@@ -161,8 +170,15 @@ static int last_packet_incomplete_1byte(struct conn_server *server,
 	/* TODO: need to change to network byte order */
 	int packet_length = (*((uint16_t *)conn->length));
 	//int packet_length = ntohs(*((uint16_t *)conn->length));
-	if (packet_length > MAX_PACKET_LEN) {
-		log_err("packet length field %#hx is too big\n", packet_length);
+	if (packet_length < PACKET_HEADER_LEN) {
+		log_warning("packet length field %d is too small\n",
+				packet_length);
+		conn->length_incomplete = false;
+		return -1;
+	} else if (packet_length > MAX_PACKET_LEN) {
+		log_warning("packet length field %d is too big\n",
+				packet_length);
+		conn->length_incomplete = false;
 		return -1;
 	}
 
@@ -192,8 +208,13 @@ static int last_packet_complete(struct conn_server *server,
 		/* TODO: need to change to network byte order */
 		int packet_length = (*((uint16_t *)buf));
 		//int packet_length = ntohs(*((uint16_t *)buf));
-		if (packet_length > MAX_PACKET_LEN) {
-			log_err("packet length field %#hx is too big\n", packet_length);
+		if (packet_length < PACKET_HEADER_LEN) {
+			log_warning("packet length field %d is too small\n",
+					packet_length);
+			return -1;
+		} else if (packet_length > MAX_PACKET_LEN) {
+			log_warning("packet length field %d is too big\n",
+					packet_length);
 			return -1;
 		}
 
@@ -242,7 +263,6 @@ static int read_packet(struct conn_server *server, struct connection *conn,
 		}
 
 		if (read_bytes < 0) {
-			log_err("read packet error\n");
 			return -1;
 		}
 		buf += read_bytes;
@@ -267,7 +287,7 @@ static inline bool is_server_socket(const struct conn_server *server, int fd)
 }
 
 /* process packet after read */
-static void read_process_packet(struct conn_server *server,
+static void process_packet(struct conn_server *server,
 		struct connection *conn)
 {
 	struct list_head *head = &conn->recv_packet_list;
@@ -284,62 +304,69 @@ static void read_process_packet(struct conn_server *server,
 	}
 }
 
-static inline void close_fd(struct conn_server *server, int fd)
+/* socket error, we need to close the connection */
+static void error_handler(struct conn_server *server, int fd)
 {
 	struct connection *conn = get_conn_by_fd(server, fd);
-	if (conn) {
-		log_info("close conn with client %u, socket %d\n",
-				conn->uin, conn->sfd);
-		timer_mark_dead(server, conn);
-	} else {
+	if (!conn) {
 		log_info("close socket %d directly\n", fd);
 		close(fd);
+		return;
+	}
+
+	if (is_server_socket(server, fd)) {
+		// TODO: reconnect to server
+	} else {
+		log_info("close conn with client %u, socket %d\n",
+				conn->uin, conn->sfd);
+		if (conn->type == LOGIN_OK_CONNECTION) {
+			send_offline_to_status(server, conn->uin);
+		}
+		close_connection(server, conn);
 	}
 }
 
 /* read data from the socket */
 static int read_handler(struct conn_server *server, int infd)
 {
-	bool err = false;
+	bool err_handle = false;
 	ssize_t count;
 	char buf[8192];
 
 	/* use fd to find connection */
 	struct connection *conn = get_conn_by_fd(server, infd);
 	if (!conn) {
-		err = true;
+		error_handler(server, infd);
+		return 0;
 	}
 
 	/* use fucntion fill_packet to generate packet */
-	while (!err) {
+	while (1) {
 		memset(buf, 0, sizeof(buf));
 		if ((count = read(infd, buf, sizeof(buf))) < 0) {
 			if (errno != EAGAIN) {
-				log_err("read data error\n");
-				err = true;
+				log_warning("read data error\n");
+				err_handle = true;
 			}
 			break;
 		} else if (count == 0) {
 			/* End of file, The remote has closed the connection */
-			/* ignore this event, wait the timer close this socket */
+			err_handle = true;
 			break;
 		} else {
 			log_info("read %d bytes data from %d\n", count, infd);
 			if (read_packet(server, conn, buf, count) < 0) {
-				log_err("read packet error\n");
-				err = true;
+				log_warning("read packet error, close the conncetion\n");
+				err_handle = true;
+				break;
 			}
 		}
 	}
 
-	if (err) {
-		/* close connection */
-		/* use timer to close the connection */
-		close_fd(server, infd);
+	if (err_handle) {
+		error_handler(server, infd);
 	} else {
-		log_debug("start processing packets for client %u\n", conn->uin);
-		read_process_packet(server, conn);
-		log_debug("end processing packets for client %u\n", conn->uin);
+		process_packet(server, conn);
 	}
 
 	return 0;
@@ -349,34 +376,34 @@ static int read_handler(struct conn_server *server, int infd)
 /* TODO: need to resolve error */
 static int write_handler(struct conn_server *server, int infd)
 {
+	bool err_handle = false;
 	int count;
-	bool err = false;
 
 	/* use fd to find connection */
 	struct connection *conn = get_conn_by_fd(server, infd);
 	if (!conn) {
-		log_err("can not find conn by socket %d\n", infd);
-		return -1;
+		error_handler(server, infd);
+		return 0;
 	}
 
 	/* remove all packet from connection */
 	struct list_head *head = &conn->send_packet_list;
+	struct list_packet *packet = NULL;
 	while (!list_empty(head)) {
-		struct list_packet *packet =
-			list_first_entry(head, struct list_packet, list);
+		packet = list_first_entry(head, struct list_packet, list);
 		list_del(&packet->list);
 
 		uint16_t length = get_length_host(packet);
-		/* TODO: need to handle count less than length */
 		if ((count = write(infd, &packet->packet, length)) < 0) {
 			if (errno != EAGAIN) {
-				log_err("write data error\n");
-				err = true;
+				log_warning("write data error\n");
+				err_handle = true;
 			}
 			break;
 		} else if (count == 0) {
 			/* End of file, The remote has closed the connection */
-			err = true;
+			err_handle = true;
+			break;
 		} else {
 			if (count != length) {
 				log_warning("can not write a whole packet\n");
@@ -393,7 +420,11 @@ static int write_handler(struct conn_server *server, int infd)
 		}
 	}
 
-	wait_for_read(server->efd, infd);
+	if (err_handle) {
+		error_handler(server, infd);
+	} else {
+		wait_for_read(server->efd, infd);
+	}
 }
 
 /* prepare the socket */
@@ -469,9 +500,8 @@ int epoll_loop(struct conn_server *server)
 			if ((events[i].events & EPOLLERR) ||
 					(events[i].events & EPOLLHUP)) {
 				/* an error has occured on this fd */
-				/* TODO: need to handle error, listen fd and conn fd */
-				log_err("epoll error\n");
-				close_fd(server, events[i].data.fd);
+				log_warning("epoll error\n");
+				error_handler(server, events[i].data.fd);
 				continue;
 			} else if (server->sfd == events[i].data.fd) {
 				/* one or more incoming connections */
