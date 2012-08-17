@@ -7,7 +7,7 @@
 #include "conn_timer.h"
 #include "conn_network.h"
 
-struct conn_server *srv;
+FILE *log_fp = NULL;
 
 int conn_server_init(struct conn_server *server)
 {
@@ -62,7 +62,6 @@ int main(int argc, char *argv[])
 
 	LOG_INIT("log_conn");
 	conn_server_init(&server);
-	srv = &server;
 
 	/* connect to user server */
 	int fd;
