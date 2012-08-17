@@ -2,7 +2,9 @@
 #define _LOG_H_
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #include <time.h>
 
 #define EMERG_LOG_LEVEL		0
