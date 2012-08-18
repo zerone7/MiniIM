@@ -3,6 +3,9 @@
  *      网络通信协议相关的数据定义
  *
  ***********************************************************/
+#ifndef _PROTOCOL_H_
+#define _PROTOCOL_H_
+
 #include <stdint.h>
 
 /*
@@ -65,3 +68,4 @@ struct packet
 	uint32_t     uin;	// 用户帐号
 	char        params[0];	// 参数
 }__attribute__((packed));
+#endif
