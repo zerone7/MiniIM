@@ -7,6 +7,8 @@
 #include "protocol.h"
 #include "list.h"
 
+#define LIST_PACKET_SIZE	(sizeof(struct list_head) + MAX_PACKET_LEN)
+
 /* packet list */
 struct list_packet {
 	struct list_head list;

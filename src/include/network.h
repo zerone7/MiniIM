@@ -2,7 +2,13 @@
 #define _NETWORK_H_
 
 #include <fcntl.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/epoll.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "log.h"
 
 static inline int connect_to_server(const char *ip, uint16_t port)
