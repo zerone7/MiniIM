@@ -34,28 +34,6 @@ int conn_server_init(struct conn_server *server)
 	return 0;
 }
 
-static int connect_to_server(const char *ip, uint16_t port)
-{
-	struct sockaddr_in addr;
-	int fd;
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr(ip);
-	addr.sin_port = htons(port);
-
-	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		log_err("create socket error\n");
-		return -1;
-	}
-
-	if (connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0) {
-		log_err("connect to server %s error\n", ip);
-		return -1;
-	}
-	return fd;
-}
-
 int main(int argc, char *argv[])
 {
 	struct conn_server server;
