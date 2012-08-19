@@ -1,18 +1,12 @@
-/***************************************************************
- * user.c
- *      用户模块，负责登录及加好友功能
- *
- **************************************************************/
-#include "modules.h"
 #include "user.h"
 #include "user_db.h"
 
-#define ACCEPT      5   //监听端口要监听的连接数
+#define ACCEPT      5   //connection num that can accept
 #define MAX_EVENTS  10
 #define BUFSIZE     MAX_PACKET_LEN
 
 static struct packet *inpack, *outpack, *status_pack;
-static int  status_fd;
+static int listen_fd, status_fd, epfd;
 
 #ifndef _MODULE_
 void user()
@@ -20,7 +14,7 @@ void user()
 void main()
 #endif
 {
-    int listen_fd, tmpfd, client_fd, epfd, size, nfds, i, n, left, ret;
+    int tmpfd, client_fd, size, nfds, i, left;
     struct epoll_event ev, events[MAX_EVENTS];
     struct sockaddr_in client_addr;
 
@@ -28,72 +22,36 @@ void main()
     outpack = malloc(MAX_PACKET_LEN);
     status_pack = malloc(MAX_PACKET_LEN);
 
-    memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
+    memset(&client_addr, 0, sizeof(client_addr));
 
     user_dbg("User start: %d\n", getpid());
-
     /* Init database connection */
-    ret = user_db_init();
-    if(ret)
-    {
+    if (user_db_init()) {
         user_err("database connect error\n"); 
         goto exit;
     }
 
-
-    listen_fd = service(USER, ACCEPT);
-    if(listen_fd < 0)
-        goto exit;
-    user_dbg("==> User listened\n");
-
-    while((status_fd = connect_to(STATUS)) < 0)
-    {
-        user_err("wait for connection to status\n");
-        sleep(2);
-    }
-
-    epfd = epoll_create(MAX_EVENTS);
-    if(epfd == -1)
-    {
-        user_err("epoll_create error\n");
+    /* Init network connection */
+    if (user_conn_init()) {
+        user_err("user connection init error\n");
         goto exit;
     }
+    user_dbg("User listened, Status connected\n");
 
-    ev.events = EPOLLIN;
-    ev.data.fd = listen_fd;
-    if(epoll_ctl(epfd, EPOLL_CTL_ADD, listen_fd, &ev) == -1)
-    {
-        user_err("epoll_ctl: listen_fd error\n");
-        goto exit;
-    }
-    ev.events = EPOLLIN;
-    ev.data.fd = status_fd;
-    if(epoll_ctl(epfd, EPOLL_CTL_ADD, status_fd, &ev) == -1)
-    {
-        user_err("epoll_ctl: status_fd error\n");
-        goto exit;
-    }
-
-    for(;;)
-    {
+    for (;;) {
         nfds = epoll_wait(epfd, events, MAX_EVENTS, -1);
-
-        if(nfds == -1)
-        {
-            user_err("epoll_wait error\n");
+        if (nfds == -1) {
+            user_err("************* epoll_wait error *************\n");
             goto exit;
         }
 
-        for(i = 0; i < nfds; i++)
-        {
+        for (i = 0; i < nfds; i++) {
             tmpfd = events[i].data.fd;
-            /* 产生新的TCP连接 */
-            if(tmpfd == listen_fd)
-            {
+            /* new connection from connection module */
+            if (tmpfd == listen_fd) {
                 client_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &size);
-                if(client_fd < 0)
-                {
+                if (client_fd < 0) {
                     user_err("accept error\n");
                     goto exit;
                 }
@@ -102,73 +60,34 @@ void main()
 
                 ev.events = EPOLLIN;
                 ev.data.fd = client_fd;
-                if(epoll_ctl(epfd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
-                {
+                if (epoll_ctl(epfd, EPOLL_CTL_ADD, client_fd, &ev) == -1) {
                     user_err("epoll_ctl: add \n");
                     goto exit;
                 }
                 continue;
             }
 
-            /* TCP连接中收到数据包 */
-            if(events[i].events & EPOLLIN)
-            {
-                user_dbg("<=======  A Packet Arrive! =======>\n");
-                if(tmpfd < 0)
-                {
+            /* receive a packet */
+            if (events[i].events & EPOLLIN) {
+                if (tmpfd < 0) {
                     user_dbg("tmpfd(%d) < 0\n", tmpfd);
                     continue;
                 }
+                user_dbg("<=======  A Packet Arrive! =======>\n");
 
-                n = read(tmpfd, inpack, PACKET_HEADER_LEN);
-                user_dbg("read %d\n", n);
-
-                /* To be removed */
-                if(!strcmp((char *)inpack, "close"))
-                    goto exit;
-
-                if(n == 0)
-                {
-                    ev.data.fd = tmpfd;
-                    epoll_ctl(epfd, EPOLL_CTL_DEL, tmpfd, &ev);
-                    close(tmpfd);
-                    continue;
-                }
-                else if(n < 0)
-                {
-                    user_dbg("%s\n", strerror(errno));
-                }
-                else
-                {
-                    user_dbg("PACKET: len %d, cmd %04x, uin %d\n", inpack->len, inpack->cmd, inpack->uin);
+                if (packet_read(tmpfd, (char *)inpack, PACKET_HEADER_LEN, epfd))
+                    continue; //connection closed or error happened
+                else {
+                    user_dbg("PACKET: len %d, cmd %04x, uin %d\n", inpack->len, inpack->cmd, \
+                            inpack->uin);
                     left = inpack->len - PACKET_HEADER_LEN;
-                    if(left > 0)
-                    {
-                        n = read(tmpfd, inpack->params, left);
-                        user_dbg("left %d, read %d\n", left, n);
-                        if(n < 0)
-                        {
-                            user_dbg("%s\n", strerror(errno));
-                        }
-                        else if(n == 0)
-                        {
-                            ev.data.fd = tmpfd;
-                            epoll_ctl(epfd, EPOLL_CTL_DEL, tmpfd, &ev);
-                            close(tmpfd);
+                    if (left > 0) {
+                        user_dbg("packet left %d bytes to read\n", left);
+                        if(packet_read(tmpfd, inpack->params, left, epfd))
                             continue;
-                        }
-
-                        if(n != left)
-                        {
-                            user_dbg("read: n != left\n");
-                            continue;
-                        }
-                    }   
-                    
-                    if(user_packet(inpack, outpack, tmpfd))
-                        continue;
-                            
-                    write(tmpfd, outpack, outpack->len);
+                    }
+                    /* packet processing */ 
+                    user_packet(inpack, outpack, tmpfd);
                 }
             }
         }
@@ -177,17 +96,52 @@ void main()
 exit:
     user_dbg("==> User process is going to exit !\n");
     user_db_close();
-    close(listen_fd);
 }
 
+/* listen user packet, connect to status module */
+int user_conn_init()
+{
+    struct epoll_event ev;
+
+    listen_fd = service(USER, ACCEPT);
+    if(listen_fd < 0)
+        return -1;
+
+    while ((status_fd = connect_to(STATUS)) < 0) {
+        user_err("wait for connection to status\n");
+        sleep(2);
+    }
+
+    epfd = epoll_create(MAX_EVENTS);
+    if (epfd == -1) {
+        user_err("epoll_create error\n");
+        return -1;
+    }
+
+    ev.events = EPOLLIN;
+    ev.data.fd = listen_fd;
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, listen_fd, &ev) == -1) {
+        user_err("epoll_ctl: listen_fd error\n");
+        return -1;
+    }
+    ev.events = EPOLLIN;
+    ev.data.fd = status_fd;
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, status_fd, &ev) == -1) {
+        user_err("epoll_ctl: status_fd error\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+/* check uin and password */
 int passwd_verify(int uin, char *passwd)
 {
     int ret;
     char user_pass[32];
     
     ret = user_get_passwd(uin, user_pass);
-    if(ret < 1 || strcmp(passwd, user_pass))
-    {
+    if (ret < 1 || strcmp(passwd, user_pass)) {
         user_dbg("user[%d] password: '%s' is wrong\n", uin, passwd);
         return -1;
     }
@@ -195,70 +149,66 @@ int passwd_verify(int uin, char *passwd)
     return 0;
 }
 
+/*
+ * user_packet - process packet and send response packet
+ * @inpack: recieved packet
+ * @outpack: response packet
+ * @sockfd: the socket that recieve packet
+ */
 int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
 {
     char nick[50], *pnick;
 
+    assert(inpack && outpack);
     user_dbg("User_packet: processing packet\n");
-    switch(inpack->cmd)
-    {
-        case CMD_LOGIN:
-            user_dbg("UIN %d, PSSWD: %s\n", inpack->uin, PARAM_PASSWD(inpack));
-            if(passwd_verify(inpack->uin, PARAM_PASSWD(inpack)))
-            {
-                outpack->len = (uint16_t) PACKET_HEADER_LEN + 4;
-                outpack->ver = (uint16_t) 1;
-                outpack->cmd = (uint16_t) SRV_ERROR;
-                outpack->uin = inpack->uin;
-                
-                *(uint32_t *)outpack->params = CMD_LOGIN << 16 | 1;
-            }
-            else //密码正确，验证通过
-            {
-                struct sockaddr_in addr;
-                socklen_t   len;
-                getpeername(sockfd, (struct sockaddr *)&addr, &len);
-                /* 发送给状态模块状态改变请求  */
-                status_pack->len = (uint16_t)PACKET_HEADER_LEN + 10;
-                status_pack->ver = (uint16_t)1;
-                status_pack->cmd = (uint16_t)CMD_STATUS_CHANGE;
-                status_pack->uin = inpack->uin;
-                *PARAM_UIN(status_pack) = inpack->uin;
-                *PARAM_IP(status_pack)  = (uint32_t)addr.sin_addr.s_addr;
-                *PARAM_TYPE(status_pack) = 1;
-                write(status_fd, status_pack, status_pack->len);
+    switch (inpack->cmd) {
+    case CMD_LOGIN: //user login
+        user_dbg("UIN %d, PSSWD: %s\n", inpack->uin, PARAM_PASSWD(inpack));
+        if(passwd_verify(inpack->uin, PARAM_PASSWD(inpack)))
+            send_error_packet(inpack->uin, CMD_LOGIN, 1, sockfd);
+        else {
+            struct sockaddr_in addr;
+            socklen_t   len;
+            getpeername(sockfd, (struct sockaddr *)&addr, &len);
+            /* login success, change user status  */
+            fill_packet_header(status_pack, PACKET_HEADER_LEN + 10, \
+                    CMD_STATUS_CHANGE, inpack->uin);
+            *PARAM_UIN(status_pack) = inpack->uin;
+            *PARAM_IP(status_pack)  = (uint32_t)addr.sin_addr.s_addr;
+            *PARAM_TYPE(status_pack) = 1;
+            write(status_fd, status_pack, status_pack->len);
 
-                user_get_nick(inpack->uin, nick);
-                *PARAM_NICKLEN(outpack) = (uint16_t) strlen(nick) +1; 
-                strcpy(PARAM_NICK(outpack), nick);
+            /* send back login result and nickname*/
+            user_get_nick(inpack->uin, nick);
+            *PARAM_NICKLEN(outpack) = (uint16_t) strlen(nick) +1; 
+            strcpy(PARAM_NICK(outpack), nick);
+            /* packet len = headerlen(12) + nicklen(2) + strlen + strend(1) */
+            fill_packet_header(outpack, PACKET_HEADER_LEN + 3 + strlen(nick), \
+                    SRV_LOGIN_OK, inpack->uin); 
 
-                outpack->len = (uint16_t) PACKET_HEADER_LEN + 2 + strlen(nick);
-                outpack->ver = (uint16_t) 1;
-                outpack->cmd = (uint16_t) SRV_LOGIN_OK;
-                outpack->uin = inpack->uin; 
-            }
-            break;
-        case CMD_SET_NICK:
-            user_dbg("UIN %d, nick: %s, nicklen %d\n", inpack->uin, PARAM_NICK(inpack), \
-                    *PARAM_NICKLEN(inpack));
+            write(sockfd, outpack, outpack->len);
+        }
+        break;
+    case CMD_SET_NICK: //user change nickname
+        user_dbg("UIN %d, nick: %s, nicklen %d\n", inpack->uin, PARAM_NICK(inpack), \
+                *PARAM_NICKLEN(inpack));
 
-            pnick = PARAM_NICK(inpack);
-            user_set_nick(inpack->uin, pnick);
+        pnick = PARAM_NICK(inpack);
+        user_set_nick(inpack->uin, pnick);
+        *PARAM_NICKLEN(outpack) = *PARAM_NICKLEN(inpack); 
+        strcpy(PARAM_NICK(outpack), pnick);
 
-            *PARAM_NICKLEN(outpack) = *PARAM_NICKLEN(inpack); 
-            strcpy(PARAM_NICK(outpack), pnick);
-
-            outpack->len = (uint16_t) PACKET_HEADER_LEN + 2 + strlen(pnick) +1;// header + 2 + strlen + '\0'
-            outpack->ver = (uint16_t) 1;
-            outpack->cmd = (uint16_t) SRV_SET_NICK_OK;
-            outpack->uin = inpack->uin; 
-            break;
-        case CMD_FRIEND_ADD:
-            user_friend_add(inpack->uin);
-            return 1;
-            break;
-        default:
-            return -1;
+        /* packet len = headerlen(12) + nicklen(2) + strlen + strend(1) */
+        fill_packet_header(outpack, PACKET_HEADER_LEN + 3 + strlen(pnick), \
+                SRV_SET_NICK_OK, inpack->uin);
+        write(sockfd, outpack, outpack->len);
+        break;
+    case CMD_FRIEND_ADD: //increase user friend count
+        user_friend_add(inpack->uin);
+        return 1;
+        break;
+    default:
+        return -1;
     }
 
     return 0;

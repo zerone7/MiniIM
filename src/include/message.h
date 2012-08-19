@@ -1,7 +1,8 @@
-#include "protocol.h"
+#include "modules.h"
 
 #define PARAM_TO_UIN(x)         (uint32_t *)x->params
 #define PARAM_TIMESTAMP(x)      (uint32_t *)(x->params + 4)
+#define PARAM_IP(x)             (uint32_t *)(x->params + 4)
 #define PARAM_LENGTH(x)         (uint16_t *)(x->params + 8)
 #define PARAM_TYPE(x)           (uint16_t *)(x->params + 8)
 #define PARAM_MESSAGE(x)        (char *) (x->params + 10)
@@ -23,6 +24,14 @@
 #define msg_err(format, arg...)             \
     printf("MESSAGE: " format, ##arg);
 
+/*
+ * message - chat message
+ * @from_uin: message sender
+ * @timestamp: message timestamp
+ * @type: message type
+ * @len: message length
+ * @msg_str: message text string
+ */
 struct message
 {
     uint32_t    from_uin;
@@ -32,12 +41,19 @@ struct message
     char        msg_str[0];
 }__attribute__((packed));
 
+/* message list */
 struct msg_list
 {
     struct msg_list *next;
     struct message  msg;
 };
 
+/*
+ * con_info - connections accept by message module
+ * @next: point to next connection
+ * @ip: ip address of this connection peer
+ * @sockfd: sock file descriptor of this connection
+ */
 struct con_info
 {
     struct con_info *next;
@@ -45,13 +61,12 @@ struct con_info
     int             sockfd;
 };
 
-void message();
 int add_con(uint32_t ip, int sockfd);
 void del_con(int sockfd);
 int ip_to_fd(uint32_t ip);
-void get_status(int uin, struct packet *outpack);
-struct msg_list *new_msg(int uin, int timestamp, int type, int len, char *message);
 int send_msg(int uin, uint32_t ip, struct packet *outpack);
 int store_offline_msg(int uin);
 int message_packet(struct packet *inpack, struct packet *outpack, int fd);
 int message_conn_init();
+struct msg_list *new_msg(int uin, int timestamp, int type, int len, \
+        char *message);

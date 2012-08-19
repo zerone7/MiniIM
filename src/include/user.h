@@ -1,4 +1,4 @@
-#include "protocol.h"
+#include "modules.h"
 
 #define PARAM_PASSLEN(x)    (uint16_t *)x->params 
 #define PARAM_PASSWD(x)     (char *)(x->params + 2) 
@@ -22,8 +22,9 @@
 #endif
 
 
-#define user_err(format, arg...)        \
+#define user_err(format, arg...) \
     printf("USER: " format, ##arg);
 
+int user_conn_init();
 int user_packet(struct packet *inpack, struct packet *outpack, int sockfd);
 int passwd_verify(int uin, char *passwd);
