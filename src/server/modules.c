@@ -1,9 +1,6 @@
-/**********************************************************
- * moudules.c
- *
- *********************************************************/
 #include "modules.h"
 
+/* connect to one of the server modules */
 int connect_to(int module)
 {
     int fd;
@@ -46,6 +43,7 @@ int connect_to(int module)
     return fd;
 }
 
+/* bind and listen on specific ip address and port */
 int service(int module, int con_num)
 {
     int fd;
@@ -94,6 +92,7 @@ int service(int module, int con_num)
     return fd;
 }
 
+/* set socket fd to nonblocking mode */
 void set_nonblock(int fd)
 {
     int opts;
@@ -111,6 +110,7 @@ void set_nonblock(int fd)
     }
 }
 
+/* send error packet */
 int send_error_packet(uint32_t uin, uint16_t cmd, uint16_t error, int sockfd)
 {
     struct error_packet errpack;
@@ -125,6 +125,7 @@ int send_error_packet(uint32_t uin, uint16_t cmd, uint16_t error, int sockfd)
     return send(sockfd, &errpack, errpack.len, 0);
 }
 
+/* read len byte from sockfd to buff */
 int packet_read(int sockfd, char *buff, int len, int epfd)
 {
     int nread;
