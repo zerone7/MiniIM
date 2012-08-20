@@ -55,7 +55,7 @@ int user_add(char *nick, char *passwd)
     }
     
     uin += 1;
-    sprintf(query_str,"insert into user set uin=%d, nick='%s', password='%s' contact_count=0",\
+    sprintf(query_str,"insert into user set uin=%d,nick='%s',password='%s',contact_count=0",\
             uin, nick, passwd); 
     if (!mysql_query(&mysql, query_str)) {
         printf("Inserted %lu rows\n", (unsigned long)mysql_affected_rows(&mysql));
