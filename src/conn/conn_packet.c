@@ -54,7 +54,7 @@ void send_offline_to_status(struct conn_server *server, uint32_t uin)
 	p->len = (18);
 	p->ver = (0x01);
 	p->cmd = (CMD_STATUS_CHANGE);
-	*((uint32_t *)((char *)p + 12) = uin;
+	*((uint32_t *)((char *)p + 12)) = uin;
 	*((uint16_t *)((char *)p + 20)) = (STATUS_CHANGE_OFFLINE);
 	/*p->len = htons(18);
 	p->ver = htons(0x01);
