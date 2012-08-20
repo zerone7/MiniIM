@@ -248,8 +248,8 @@ int status_packet(struct packet *inpack, struct packet *outpack, int sockfd)
 
     switch (inpack->cmd) {
     case CMD_STATUS_CHANGE: //status chage request
-        stat_dbg("STATUS_CHANGE type: %d, ip: %d\n", *PARAM_TYPE(inpack), \
-                *PARAM_IP(inpack));
+        stat_dbg("STATUS_CHANGE type: uin %d, stat: %d\n", *PARAM_UIN(inpack), \
+                *PARAM_TYPE(inpack));
         if (set_status(*PARAM_UIN(inpack), *PARAM_IP(inpack), *PARAM_TYPE(inpack)))
             return -1;
         

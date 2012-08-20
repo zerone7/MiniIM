@@ -14,11 +14,11 @@ static MYSQL_ROW   row;
 int user_db_init()
 {
     mysql_init(&mysql);
-    if (!mysql_real_connect(&mysql, "localhost","im_user","im_user_pass","user",0,NULL,0)) {
+    if (!mysql_real_connect(&mysql, "localhost", "im_user", "im_user_pass", \
+                "user", 0, NULL, 0)) {
         printf("connection error: %s\n", mysql_error(&mysql));
         return -1;
     }
-
     return 0;
 }
 
@@ -101,7 +101,7 @@ int user_get_nick(int uin, char *nick)
     if (result) {
         row = mysql_fetch_row(result);
         if (row) {
-            sprintf(nick, "%s", row[0]);
+            strcpy(nick, row[0]);
             mysql_free_result(result);
             return 1;
         } else {

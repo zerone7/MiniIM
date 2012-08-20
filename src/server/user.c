@@ -1,3 +1,5 @@
+#include <openssl/md5.h>
+
 #include "user.h"
 #include "user_db.h"
 
@@ -137,16 +139,39 @@ int user_conn_init()
 /* check uin and password */
 int passwd_verify(int uin, char *passwd)
 {
-    int ret;
-    char user_pass[32];
+    unsigned char user_pass[16];
+    //unsigned char pass_hash[16];
     
-    ret = user_get_passwd(uin, user_pass);
-    if (ret < 1 || strcmp(passwd, user_pass)) {
+    //MD5(passwd, strlen(passwd), pass_hash);
+    if(user_get_passwd(uin, user_pass) < 1)
+    {
+        user_err("get_pass word error\n");
+        return -1;
+    }
+
+    //if (memcmp(pass_hash, password)) {
+    if (strcmp(passwd, user_pass)) {
         user_dbg("user[%d] password: '%s' is wrong\n", uin, passwd);
         return -1;
     }
 
     return 0;
+}
+
+/* send status change request to Status module */
+int request_status_change(int uin, int sockfd, uint16_t stat)
+{
+    struct sockaddr_in addr;
+    socklen_t   len;
+
+    getpeername(sockfd, (struct sockaddr *)&addr, &len);
+    /* login success, change user status  */
+    fill_packet_header(status_pack, PACKET_HEADER_LEN + 10, \
+            CMD_STATUS_CHANGE, uin);
+    *PARAM_UIN(status_pack) = uin;
+    *PARAM_IP(status_pack)  = (uint32_t)addr.sin_addr.s_addr;
+    *PARAM_TYPE(status_pack) = stat;
+    write(status_fd, status_pack, status_pack->len);
 }
 
 /*
@@ -157,33 +182,26 @@ int passwd_verify(int uin, char *passwd)
  */
 int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
 {
-    char nick[50], *pnick;
+    char  *pnick, *password;
 
     assert(inpack && outpack);
     user_dbg("User_packet: processing packet\n");
     switch (inpack->cmd) {
     case CMD_LOGIN: //user login
-        user_dbg("UIN %d, PSSWD: %s\n", inpack->uin, PARAM_PASSWD(inpack));
+        password = PARAM_PASSWD(inpack);
+        password[*PARAM_PASSLEN(inpack)] = '\0';
+        user_dbg("UIN %d, PSSWD: %s\n", inpack->uin, password);
         if(passwd_verify(inpack->uin, PARAM_PASSWD(inpack)))
             send_error_packet(inpack->uin, CMD_LOGIN, 1, sockfd);
         else {
-            struct sockaddr_in addr;
-            socklen_t   len;
-            getpeername(sockfd, (struct sockaddr *)&addr, &len);
-            /* login success, change user status  */
-            fill_packet_header(status_pack, PACKET_HEADER_LEN + 10, \
-                    CMD_STATUS_CHANGE, inpack->uin);
-            *PARAM_UIN(status_pack) = inpack->uin;
-            *PARAM_IP(status_pack)  = (uint32_t)addr.sin_addr.s_addr;
-            *PARAM_TYPE(status_pack) = 1;
-            write(status_fd, status_pack, status_pack->len);
-
+            /*login ok, change status */
+            request_status_change(inpack->uin, sockfd, 1);
             /* send back login result and nickname*/
-            user_get_nick(inpack->uin, nick);
-            *PARAM_NICKLEN(outpack) = (uint16_t) strlen(nick) +1; 
-            strcpy(PARAM_NICK(outpack), nick);
+            user_get_nick(inpack->uin, PARAM_NICK(outpack));
+            *PARAM_NICKLEN(outpack) = (uint16_t)strlen(PARAM_NICK(outpack)) + 1; 
             /* packet len = headerlen(12) + nicklen(2) + strlen + strend(1) */
-            fill_packet_header(outpack, PACKET_HEADER_LEN + 3 + strlen(nick), \
+            fill_packet_header(outpack, \
+                    PACKET_HEADER_LEN + 3 + *PARAM_NICKLEN(outpack),\
                     SRV_LOGIN_OK, inpack->uin); 
 
             write(sockfd, outpack, outpack->len);
