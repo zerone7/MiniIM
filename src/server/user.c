@@ -1,5 +1,3 @@
-#include <openssl/md5.h>
-
 #include "user.h"
 #include "user_db.h"
 
@@ -201,7 +199,7 @@ int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
             *PARAM_NICKLEN(outpack) = (uint16_t)strlen(PARAM_NICK(outpack)) + 1; 
             /* packet len = headerlen(12) + nicklen(2) + strlen + strend(1) */
             fill_packet_header(outpack, \
-                    PACKET_HEADER_LEN + 3 + *PARAM_NICKLEN(outpack),\
+                    PACKET_HEADER_LEN + 2 + *PARAM_NICKLEN(outpack),\
                     SRV_LOGIN_OK, inpack->uin); 
 
             write(sockfd, outpack, outpack->len);
