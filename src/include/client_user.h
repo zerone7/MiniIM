@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "list.h"
 #include "protocol.h"
+#include "uthash.h"
 
 #define LOGIN_INCOMPLETE	1
 #define LOGIN_OK		2
@@ -48,6 +49,26 @@
 #define set_field(ptr, offset, size, val_ptr)	\
 	memcpy(char_ptr(ptr) + (offset), (val_ptr), (size));
 
+struct contact {
+	uint32_t uin;
+	int is_online;
+	char nick[MAX_NICK_LENGTH + 1];
+	UT_hash_handle hh;
+};
+
+struct offline_msg_table {
+	uint32_t uin;
+	struct list_head head;
+	UT_hash_handle hh;
+};
+
+struct offline_msg {
+	struct list_head list;
+	uint32_t uin;
+	int type;
+	char *message;
+};
+
 struct packet_reader {
 	struct list_head recv_packet_list;
 	int expect_bytes;
@@ -57,17 +78,17 @@ struct packet_reader {
 
 struct client_user {
 	struct packet_reader reader;
-	struct list_head other_msg_list;
 	struct list_head recv_packet_list;
 	struct list_head send_packet_list;
+	struct list_head pending_list;
+	struct offline_msg_table *offline_msg_table;
 	struct packet *packet;
 	uint32_t uin;
 	uint32_t chat_uin;
 	int contact_count;
-	uint32_t *contact_uins;
+	struct contact *contact_table;
 	int socket;
 	int epoll;
-	int type;
 	int mode;
 };
 

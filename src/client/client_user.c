@@ -172,10 +172,12 @@ void client_user_init(struct client_user *user)
 	packet_reader_init(&user->reader);
 	INIT_LIST_HEAD(&user->recv_packet_list);
 	INIT_LIST_HEAD(&user->send_packet_list);
-	INIT_LIST_HEAD(&user->other_msg_list);
+	INIT_LIST_HEAD(&user->pending_list);
 	user->packet = malloc(MAX_PACKET_LEN);
 	memset(user->packet, 0, MAX_PACKET_LEN);
-	user->type = LOGIN_INCOMPLETE;
+	user->contact_table = NULL;
+	user->offline_msg_table = NULL;
+	user->mode = LOGIN_MODE;
 }
 
 static struct list_packet* create_packet(uint32_t uin,
@@ -215,7 +217,6 @@ void cmd_login(struct client_user *user,
 	set_field(packet, PARAMETERS_OFFSET + 2, pass_len, password);
 
 	user->uin = uin;
-	user->type = LOGIN_INCOMPLETE;
 	user->mode = LOGIN_MODE;
 	list_add_tail(&lp->list, get_send_list(user));
 	wait_for_write(user->epoll, user->socket);
@@ -226,7 +227,6 @@ void cmd_logout(struct client_user *user)
 	uint16_t length = PACKET_HEADER_LEN;
 	struct list_packet *lp = create_packet(user->uin, length, CMD_LOGOUT);
 
-	user->type = LOGIN_INCOMPLETE;
 	list_add_tail(&lp->list, get_send_list(user));
 	wait_for_write(user->epoll, user->socket);
 }
@@ -302,12 +302,13 @@ void cmd_message(struct client_user *user,
 	uint16_t msg_len = strlen(message);
 	assert(msg_len++ <= MAX_MESSAGE_LENGTH);
 
-	uint16_t length = PACKET_HEADER_LEN + 2 + msg_len;
+	uint16_t length = PACKET_HEADER_LEN + 10 + msg_len;
 	struct list_packet *lp = create_packet(user->uin, length, CMD_MESSAGE);
 	struct packet *packet = &lp->packet;
 
-	set_field_htons(packet, PARAMETERS_OFFSET, msg_len);
-	set_field(packet, PARAMETERS_OFFSET + 2, msg_len, message);
+	set_field_htonl(packet, PARAMETERS_OFFSET, to_uin);
+	set_field_htons(packet, PARAMETERS_OFFSET + 8, msg_len);
+	set_field(packet, PARAMETERS_OFFSET + 10, msg_len, message);
 	list_add_tail(&lp->list, get_send_list(user));
 	wait_for_write(user->epoll, user->socket);
 }
