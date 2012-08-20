@@ -81,8 +81,8 @@ void main()
                 if (nread)
                     continue;
                 else {
-                    frd_dbg("PACKET: len %d, cmd %04x, uin %d\n", inpack->len, inpack->cmd, \
-                            inpack->uin);
+                    frd_dbg("PACKET: len %d, cmd %04x, uin %d\n", inpack->len, \
+                            inpack->cmd, inpack->uin);
                     left = inpack->len - PACKET_HEADER_LEN;
                     if (left > 0) {
                         frd_dbg("packet left %d bytes to read\n", left);
@@ -195,11 +195,7 @@ int send_friend_msg(struct packet *outpack, int from, int to, uint16_t type)
     struct friend_msg *fmsg;
 
     assert(outpack);
-    outpack->len = PACKET_HEADER_LEN + 12;
-    outpack->ver = 1;
-    outpack->cmd = CMD_MSG_FRIEND;
-    outpack->uin = from;
-
+    fill_packet_header(outpack, PACKET_HEADER_LEN + 12, CMD_MSG_FRIEND, from);
     fmsg = (struct friend_msg *)outpack->params;
     fmsg->to_uin = to;
     fmsg->type = type;
@@ -225,9 +221,7 @@ int friend_packet(struct packet *inpack, struct packet *outpack, int sockfd)
         frd_dbg("user %d add friend %d\n", inpack->uin, uin);
         if (check_friend(inpack->uin, uin)) {
             /* they are already friends */
-            fill_packet_header(outpack, PACKET_HEADER_LEN + 4, SRV_ERROR, uin);
-            *(uint32_t *)outpack->params = CMD_ADD_CONTACT<<16 | 0x1;
-            write(sockfd, outpack, outpack->len);
+            send_error_packet(uin, CMD_ADD_CONTACT, 0x1, sockfd);
         } else {
             /* they are not friend now */
             send_friend_msg(outpack, inpack->uin, uin, MSG_TYPE_REQUEST);

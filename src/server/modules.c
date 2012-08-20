@@ -115,14 +115,14 @@ int send_error_packet(uint32_t uin, uint16_t cmd, uint16_t error, int sockfd)
 {
     struct error_packet errpack;
 
-    errpack.len = 16;
-    errpack.ver = 1;
-    errpack.cmd = SRV_ERROR;
-    errpack.uin = uin;
-    errpack.client_cmd = cmd;
-    errpack.type = error;
+    errpack.len = net16(16);
+    errpack.ver = net16(1);
+    errpack.cmd = net16(SRV_ERROR);
+    errpack.uin = net32(uin);
+    errpack.client_cmd = net16(cmd);
+    errpack.type = net16(error);
 
-    return send(sockfd, &errpack, errpack.len, 0);
+    return send(sockfd, &errpack, 16, 0);
 }
 
 /* read len byte from sockfd to buff */
