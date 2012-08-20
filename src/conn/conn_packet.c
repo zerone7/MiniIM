@@ -51,11 +51,11 @@ void send_offline_to_status(struct conn_server *server, uint32_t uin)
 	packet_init(packet);
 	struct packet *p = &packet->packet;
 	/* TODO: need to change to network byte order */
-	p->len = (18);
+	p->len = (22);
 	p->ver = (0x01);
 	p->cmd = (CMD_STATUS_CHANGE);
-	p->uin = (uin);
-	*((uint16_t *)(p + 16)) = (STATUS_CHANGE_OFFLINE);
+	*((uint32_t *)((char *)p + 12)) = uin;
+	*((uint16_t *)((char *)p + 20)) = (STATUS_CHANGE_OFFLINE);
 	/*p->len = htons(18);
 	p->ver = htons(0x01);
 	p->cmd = htons(CMD_STATUS_CHANGE);
