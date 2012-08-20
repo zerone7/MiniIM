@@ -24,8 +24,8 @@ static int         rows;
 int message_db_init()
 {
     mysql_init(&mysql);
-    if (!mysql_real_connect(&mysql, "localhost", "root", "rooter", "offline_msg", \
-                0, NULL, 0)) {
+    if (!mysql_real_connect(&mysql, "localhost", "im_user", "im_user_pass", \
+                "offline_msg", 0, NULL, 0)) {
         printf("connection error: %s\n", mysql_error(&mysql));
         return -1;
     }

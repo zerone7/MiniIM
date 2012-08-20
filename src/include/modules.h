@@ -41,6 +41,49 @@
 #define DEBUG_MESSAGE
 #define DEBUG_STATUS
 
+/* order byte convertion */
+#ifdef _ORDER_CONVERT_
+static inline uint32_t net32(uint32_t hostl)
+{
+    return htonl(hostl);
+}
+
+static inline uint32_t host32(uint32_t netl)
+{
+    return ntohl(netl);
+}
+
+static inline uint16_t net16(uint16_t hosts)
+{
+    return htons(hosts);
+}
+
+static inline uint16_t host16(uint16_t nets)
+{
+    return ntohs(nets);
+}
+#else
+static inline uint32_t net32(uint32_t hostl)
+{
+    return hostl;
+}
+
+static inline uint32_t host32(uint32_t netl)
+{
+    return netl;
+}
+
+static inline uint16_t net16(uint16_t hosts)
+{
+    return hosts;
+}
+
+static inline uint16_t host16(uint16_t nets)
+{
+    return nets;
+}
+#endif
+
 /*
  * error_packet
  * @len: packet length
@@ -66,10 +109,10 @@ struct error_packet
 static inline void fill_packet_header(struct packet *pack,\
         uint16_t len, uint16_t cmd, uint32_t uin)
 {
-    pack->len = len;
-    pack->ver = 1;
-    pack->cmd = cmd;
-    pack->uin = uin;
+    pack->len = net16(len);
+    pack->ver = net16(1);
+    pack->cmd = net16(cmd);
+    pack->uin = net32(uin);
 }
 
 void user();

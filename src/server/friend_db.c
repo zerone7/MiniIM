@@ -17,13 +17,13 @@ int friend_db_init()
     mysql_init(&user);
     mysql_init(&contact);
 
-    if (!mysql_real_connect(&user, "localhost", "root", "rooter", \
+    if (!mysql_real_connect(&user, "localhost", "im_user", "im_user_pass", \
                 "user", 0, NULL, 0)) {
         printf("connection error: %s\n", mysql_error(&user));
         return -1;
     }
 
-    if (!mysql_real_connect(&contact, "localhost", "root", "rooter", \
+    if (!mysql_real_connect(&contact, "localhost", "im_user", "im_user_pass", \
                 "contact", 0, NULL, 0)) {
         printf("connection error: %s\n", mysql_error(&contact));
         return -1;
