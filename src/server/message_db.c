@@ -136,6 +136,22 @@ int  message_store(int from, int to, int type, char *msg)
     sprintf(query_str,"insert into offline_msg set from_uin=%d, to_uin=%d, type=%d, message='%s'", \
             from, to, type, msg); 
 
+    if (mysql_query(&mysql, query_str)) {
+        printf("Update message Error: %s\n", mysql_error(&mysql));
+        return -1;
+    }
+
+    return 0;
+}
+
+/* update offline message */
+int  message_update(int from, int to, char *msg)
+{
+    char query_str[1000];
+
+    assert(msg);
+    sprintf(query_str,"update offline_msg set message=concat(message,'\n','%s'), where from_uin=%d, to_uin=%d", msg, from, to); 
+
     if (!mysql_query(&mysql, query_str)) {
         printf("Inserted %lu rows\n", (unsigned long)mysql_affected_rows(&mysql));
         return 0;

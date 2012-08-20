@@ -3,3 +3,4 @@ void message_db_close();
 int message_store(int from, int to, int type, char *msg);
 int message_get(int uin, char *buff, int *left);
 int message_delete(int uin);
+int  message_update(int from, int to, char *msg);

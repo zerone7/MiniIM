@@ -189,7 +189,10 @@ int store_offline_msg(int uin)
     msg_dbg("Store offline msg to uin(%d)\n", uin);
     msg = map[uin];
     while (msg) {
-        message_store(msg->msg.from_uin, uin, msg->msg.type, (char *)msg->msg.msg_str); 
+        if (message_store(msg->msg.from_uin, uin, msg->msg.type, \
+                    (char *)msg->msg.msg_str)) {
+            message_update(msg->msg.from_uin, uin, (char *)msg->msg.msg_str);
+        }
         msg = msg->next;
     }
     map[uin] = NULL;
@@ -204,20 +207,21 @@ int send_msg(int uin, uint32_t ip, struct packet *outpack)
     struct msg_list *msg;
 
     assert(outpack);
-    msg_dbg("Send msg to uin(%d), ip(%d)\n", uin, ip);
+    msg_dbg("Sending message -->\n");
     msg = map[uin];
     if (msg) {
         sockfd = ip_to_fd(ip);
+        msg_dbg("Send msg to uin(%d), ip(%d), fd(%d)\n", uin, ip, sockfd);
         if (sockfd < 0)
             return sockfd;
-
-        outpack->ver = (uint16_t)1;
-        outpack->cmd = (uint16_t)SRV_MESSAGE;
+        outpack->ver = 1;
+        outpack->cmd = SRV_MESSAGE;
         outpack->uin = uin;
         while(msg) {
             outpack->len = PACKET_HEADER_LEN + MSG_HEADER_LEN + msg->msg.len;
             memcpy(outpack->params, (void *)&msg->msg, MSG_HEADER_LEN + msg->msg.len);
             write(sockfd, outpack, outpack->len);
+            msg_dbg("Sent message: %s\n", msg->msg.msg_str);
             msg = msg->next;
         }
     }
