@@ -65,10 +65,14 @@
 #define STATUS_IP               "127.0.0.1"
 #define STATUS_PORT             11004
 
+#define CONN_IP                 "127.0.0.1"
+#define CONN_PORT	            27182
+
 #define USER                    1
 #define FRIEND                  2
 #define MESSAGE                 3
 #define STATUS                  4
+#define CONN                    5
 
 #define MAX_PACKET_LEN          5018  
 #define HEADER_LEN              12

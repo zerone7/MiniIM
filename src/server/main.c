@@ -1,6 +1,7 @@
 /*************************************************************
  * main.c
- *      服务器端程序入口，负责创建各个模块子进程
+ *      server main fuction, creata child process for each
+ * module
  *
  *************************************************************/
 #include <stdio.h>
@@ -15,44 +16,38 @@
 #define FRIEND_START    0x2
 #define MESSAGE_START   0x4
 #define STATUS_START    0x8
-#define PROCESS_MASK    MESSAGE_START | FRIEND_START | STATUS_START
+#define PROCESS_MASK    MESSAGE_START | FRIEND_START | STATUS_START | USER_START
 
 int main()
 {
     int i, alive = 0, start;
-    pid_t pid[CHILDNUM]; //子进程进程号
+    pid_t pid[CHILDNUM]; //child process num
     pid_t waitpid;
 
-    void (*fucs[CHILDNUM])() = {user, friend, message, status}; //子进程入口函数
+    /* child process entrance */
+    void (*fucs[CHILDNUM])() = {user, friend, message, status};
 
-    for(i = 0; i < CHILDNUM; i++)
+    for (i = 0; i < CHILDNUM; i++)
         pid[i] = -1;
 
     start = PROCESS_MASK;
-    for(i = 0; i < CHILDNUM; i++)
-    {
-        if(start & 1<<i)
-        {
-            /* 依次创建各个模块进程 */
-            if((pid[i] = fork()) == 0) //子进程
-            {
+    for (i = 0; i < CHILDNUM; i++) {
+        /* create child process according to PROCESS_MASK */
+        if (start & 1<<i) {
+            if ((pid[i] = fork()) == 0) {
                 fucs[i]();
                 printf("process %d exit\n", i);
                 return 0;
-            }
-            else if(pid[i] < 0) //错误处理
-            {
+            } else if (pid[i] < 0) {
                 printf("Error creating process %d\n", i);
                 return -1;
             }
-
             alive++;
         }
     }
 
-    /* 等待子进程全部退出 */
-    while(alive)
-    {
+    /* Wait for all child process exit */
+    while (alive) {
         waitpid = wait(NULL);
         printf("====> child process %d exit !\n", waitpid);
         alive--;

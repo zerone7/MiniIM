@@ -1,4 +1,4 @@
-#include "protocol.h"
+#include "modules.h"
 #include "conn_list.h"
 
 #define PARAM_UIN(x)    (uint32_t *)x->params
@@ -21,8 +21,9 @@
     printf("STATUS: " format, ##arg);
 
 /*
- * 缓存的用户状态信息：
- * con_ip: 接入服务器的ip地址
+ * stauts_info - user status cache
+ * @node: list node
+ * @con_ip: connection server ip
  */
 struct status_info
 {
@@ -30,13 +31,19 @@ struct status_info
     int con_ip;
 };
 
+/* user_status - 用户状态信息 */
 struct user_status
 {
     uint32_t uin;
     uint16_t stat;
 }__attribute__((packed));
 
-int status_list_init();
+int status_packet(struct packet *inpack, struct packet *outpack,\
+        int sockfd);
+void get_multi_status(uint32_t *uins, uint16_t num, \
+        struct user_status *multi_stat);
 struct status_info * status_list_get();
-void status_list_put(struct status_info *info);
-int status_packet(struct packet *inpack, struct packet *outpack);
+int status_conn_init();
+int status_list_init();
+int set_status(uint32_t uin, uint32_t ip, uint16_t stat);
+int get_status(uint32_t uin, uint32_t *pip, uint16_t *pstat);

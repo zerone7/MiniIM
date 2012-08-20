@@ -60,6 +60,10 @@ int connect_to(int module)
             addr.sin_addr.s_addr = inet_addr(STATUS_IP);
             addr.sin_port = htons(STATUS_PORT);
             break;
+        case CONN:
+            addr.sin_addr.s_addr = inet_addr(CONN_IP);
+            addr.sin_port = htons(CONN_PORT);
+            break;
         default:
             return -1;
     }
@@ -83,7 +87,8 @@ void user_test()
 {
 	int client_sockfd;
 	int len, n;
-    char cmd[20];
+    char cmd[50];
+    char *pcmd;
     char nick[] = "justanick";
     struct packet *loginpack, *nickpack, *recvpack, *addpack;
 
@@ -101,14 +106,8 @@ void user_test()
 
     printf("len %d, passwd: %s\n", loginpack->len, PARAM_PASSWD(loginpack));
 
-    sprintf(PARAM_NICK(nickpack), "%s", nick);
-    *PARAM_NICKLEN(nickpack) = (uint16_t)sizeof(nick);
-    nickpack->ver = 1;
-    nickpack->cmd = 0x0201;
-    nickpack->uin = 11111;
-    nickpack->len = HEADER_LEN + 2 + sizeof(nick);
-
-    client_sockfd = connect_to(USER);
+    //client_sockfd = connect_to(USER);
+    client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to USER error\n");
@@ -118,7 +117,8 @@ void user_test()
 
     while(fgets(cmd, 20, stdin))
     {
-        if(!strcmp(cmd, "login\n")) // correclt loging packet
+        pcmd = strtok(cmd, " ");
+        if(!strcmp(pcmd, "login\n")) // correclt loging packet
         {
             loginpack->uin = 10086;
 		    send(client_sockfd, loginpack, loginpack->len, 0);
@@ -127,7 +127,7 @@ void user_test()
             printf("Packet: len %d, cmd %04x, uin %d, nick %s.\n", recvpack->len, \
                     recvpack->cmd, recvpack->uin,PARAM_NICK(recvpack));
         }
-        else if(!strcmp(cmd, "xlogin\n")) // faulse login packet
+        else if(!strcmp(pcmd, "xlogin\n")) // faulse login packet
         {
             loginpack->uin = 11086;
 		    send(client_sockfd, loginpack, loginpack->len, 0);
@@ -136,7 +136,7 @@ void user_test()
             printf("Packet: len %d, cmd %04x, uin %d, params %04x.\n", recvpack->len, \
                     recvpack->cmd, recvpack->uin,*(int *)recvpack->params);
         }
-        else if(!strcmp(cmd, "add\n"))
+        else if(!strcmp(pcmd, "add\n"))
         {
             addpack->len = HEADER_LEN;
             addpack->ver = 1;
@@ -144,8 +144,16 @@ void user_test()
             addpack->uin = 11111;
             send(client_sockfd, addpack, addpack->len, 0);
         }
-        else if(!strcmp(cmd, "nick\n"))
+        else if(!strcmp(cmd, "nick"))
         {
+            pcmd = strtok(NULL, " ");
+            strcpy(PARAM_NICK(nickpack), pcmd);
+            *PARAM_NICKLEN(nickpack) = strlen(pcmd)+1;
+            nickpack->ver = 1;
+            nickpack->cmd = 0x0201;
+            nickpack->uin = 11111;
+            nickpack->len = HEADER_LEN + 3 + strlen(pcmd);
+
             send(client_sockfd, nickpack, nickpack->len, 0);
             n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
             printf("receive %d bytes\n", n);
@@ -185,7 +193,8 @@ void status_test()
     sstatpack = (struct packet *)malloc(BUFSIZE);
     recvpack = (struct packet *)malloc(BUFSIZE);
 
-    client_sockfd = connect_to(STATUS);
+    //client_sockfd = connect_to(STATUS);
+    client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to USER error\n");
@@ -294,17 +303,19 @@ void message_test()
     char cmd[20];
     char chat[100];
     char *pcmd;
-    struct packet *offlinepack, *chatpack, *recvpack;
+    struct packet *offlinepack, *chatpack, *recvpack, *packet;
     struct sockaddr_in addr;
     socklen_t   addrlen;
 
     offlinepack = (struct packet *)malloc(BUFSIZE);
     chatpack = (struct packet *)malloc(BUFSIZE);
+    packet = (struct packet *)malloc(BUFSIZE);
     recvpack = (struct packet *)malloc(BUFSIZE);
 
     sprintf(chat,"%s", "This is a chat message example, hehe :)");
 
-    client_sockfd = connect_to(MESSAGE);
+    //client_sockfd = connect_to(MESSAGE);
+    client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to MESSAGE error\n");
@@ -329,6 +340,27 @@ void message_test()
 		    send(client_sockfd, offlinepack, offlinepack->len, 0);
 
             get_offline_msgs(client_sockfd, recvpack);
+        }
+        else if(!strcmp(pcmd, "login\n"))
+        {
+            sprintf(PARAM_PASSWD(packet), "10010");
+            *PARAM_PASSLEN(packet) = 6;
+            packet->len = HEADER_LEN + sizeof("10010") + 2;
+            packet->ver = 1;
+            packet->cmd = 0x0101;
+            packet->uin = 10010;
+		    send(client_sockfd, packet, packet->len, 0);
+            n = recv(client_sockfd, recvpack, BUFSIZE, 0);
+            printf("receive %d bytes\n", n);
+            printf("Packet: len %d, cmd %04x, uin %d, nick %s.\n", recvpack->len, \
+                    recvpack->cmd, recvpack->uin,PARAM_NICK(recvpack));
+
+            n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
+            printf("receive %d bytes\n", n);
+            printf("Packet: len %d, cmd %04x, uin %d\n", recvpack->len, \
+                    recvpack->cmd, recvpack->uin);
+            printf("Message: from %d, type %d, len %d, msg '%s'\n", *PARAM_UIN(recvpack), \
+                    *PARAM_TYPE(recvpack), *(uint16_t *)(recvpack->params+10), (char *)recvpack->params+12);
         }
         else if(!strcmp(pcmd, "chat"))
         {
@@ -357,13 +389,13 @@ void message_test()
                     *PARAM_LENGTH(chatpack));
             printf("Message: %s\n", chatpack->params+10);
 
-            n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
+/*           n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
             printf("receive %d bytes\n", n);
             printf("Packet: len %d, cmd %04x, uin %d\n", recvpack->len, \
                     recvpack->cmd, recvpack->uin);
             printf("Message: from %d, type %d, len %d, msg '%s'\n", *PARAM_UIN(recvpack), \
                     *PARAM_TYPE(recvpack), *(uint16_t *)(recvpack->params+10), (char *)recvpack->params+12);
-        }
+*/        }
         else if(!strcmp(pcmd, "srv\n"))
         {
             send(client_sockfd, "close", 6, 0);
@@ -432,7 +464,8 @@ void friend_test()
     recvpack = (struct packet *)malloc(BUFSIZE);
     packet = (struct packet *)malloc(BUFSIZE);
 
-    client_sockfd = connect_to(FRIEND);
+    //client_sockfd = connect_to(FRIEND);
+    client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to FRIEND error\n");
@@ -457,9 +490,23 @@ void friend_test()
 
             print_friend_list(client_sockfd, recvpack);
         }
+        else if(!strcmp(pcmd, "login\n"))
+        {
+            sprintf(PARAM_PASSWD(packet), "10086");
+            *PARAM_PASSLEN(packet) = 6;
+            packet->len = HEADER_LEN + sizeof("10086") + 2;
+            packet->ver = 1;
+            packet->cmd = 0x0101;
+            packet->uin = 10086;
+		    send(client_sockfd, packet, packet->len, 0);
+            n = recv(client_sockfd, recvpack, BUFSIZE, 0);
+            printf("receive %d bytes\n", n);
+            printf("Packet: len %d, cmd %04x, uin %d, nick %s.\n", recvpack->len, \
+                    recvpack->cmd, recvpack->uin,PARAM_NICK(recvpack));
+        }
         else if(!strcmp(pcmd, "info\n"))
         {
-            infopack->uin = 7777;
+            infopack->uin = 10086;
             infopack->len = HEADER_LEN + 2 + 5*4;
             infopack->ver = 1;
             infopack->cmd = CMD_CONTACT_INFO_MULTI;
@@ -479,7 +526,7 @@ void friend_test()
         {
             pcmd = strtok(NULL, " ");
             uin = atoi(pcmd);
-            packet->uin = 7777;   
+            packet->uin = 10086;   
             packet->len = HEADER_LEN + 4;
             packet->ver = 1;
             packet->cmd = CMD_ADD_CONTACT;
