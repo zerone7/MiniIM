@@ -7,8 +7,8 @@
 #include "conn_list.h"
 #include "conn_connection.h"
 
+#define STATUS_CHANGE_OFFLINE	0x00
 #define STATUS_CHANGE_ONLINE	0x01
-#define STATUS_CHANGE_OFFLINE	0x02
 
 struct conn_server;
 
