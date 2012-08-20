@@ -118,9 +118,9 @@ void cmd_login(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	conn->type = LOGIN_UNCOMPLETE_CONNECTION;
+	conn->uin = get_uin_host(packet);
 	/* NOTE: this is used for test */
-	uint32_t uin = get_uin_host(packet);
-	struct uin_entry entry = {uin, conn};
+	struct uin_entry entry = {conn->uin, conn};
 	hset_insert(&server->uin_conn_map, &entry);
 	cmd_user(server, conn, packet);
 }
