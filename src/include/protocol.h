@@ -38,6 +38,7 @@
 #define CMD_GET_STATUS          0x1201
 #define CMD_MULTI_STATUS        0x1202
 #define CMD_MSG_FRIEND          0x1203
+#define CMD_CONN_INFO           0x1204
 #define REP_STATUS_CHANGED      0x2101
 #define REP_STATUS              0x2201
 #define REP_MULTI_STATUS        0x2202
