@@ -163,29 +163,40 @@ int friend_conn_init()
     return 0;
 }
 
-/* check whether user(friend) is already in user(uin)'s friend list */
+/* 
+ * check whether user(friend) is already in user(uin)'s friend list,
+ * and whether the contact which the user want to add is valid or not.
+ * return -1, if friend not exist; return 1 if friend already in contact
+ * list; return 0 if it ok to add contact; return other if error happend.
+ */
 int check_friend(int uin, int friend)
 {
     int num;
     uint32_t *friends;
     
-    num = get_friend_num(uin);
-    frd_dbg("user %d has %d friends\n", uin, num);
-
-    if (num == 0)
-        return 0;
-    else if (num < 0)
+    /* check whether uin is valid */
+    if (friend_check_uin(friend))
         return -1;
     else {
-        friends = malloc(num * 4);            
-        get_friend_list(uin, num, friends);
-        while (num > 0) { 
-            num--;
-            if (friend == friends[num])
-                return 1;
+        /* check user friend list */
+        num = get_friend_num(uin);
+        frd_dbg("user %d has %d friends\n", uin, num);
+
+        if (num == 0)
+            return 0;
+        else if (num < 0)
+            return -2;
+        else {
+            friends = malloc(num * 4);            
+            get_friend_list(uin, num, friends);
+            while (num > 0) { 
+                num--;
+                if (friend == friends[num])
+                    return 1;
+            }
+            free(friends);
+            return 0;
         }
-        free(friends);
-        return 0;
     }
 }
 
@@ -212,16 +223,22 @@ int send_friend_msg(struct packet *outpack, int from, int to, uint16_t type)
  */
 int friend_packet(struct packet *inpack, struct packet *outpack, int sockfd)
 {
-    int uin, num;
+    int uin, num, ret;
 
     assert(inpack && outpack);
     switch (inpack->cmd) {
     case CMD_ADD_CONTACT: // add friend request
         uin = *(uint32_t *)inpack->params;
         frd_dbg("user %d add friend %d\n", inpack->uin, uin);
-        if (check_friend(inpack->uin, uin)) {
-            /* they are already friends */
-            send_error_packet(uin, CMD_ADD_CONTACT, 0x1, sockfd);
+        ret = check_friend(inpack->uin, uin);
+        if (ret) {
+            if (ret == 1) {
+                /* they are already friends */
+                send_error_packet(uin, CMD_ADD_CONTACT, ERR_ALREADY_FRIEDN, sockfd);
+            } else if (ret == -1) {
+                /* friend is not a valid user */
+                send_error_packet(uin, CMD_ADD_CONTACT, ERR_NOT_EXIST, sockfd);
+            }
         } else {
             /* they are not friend now */
             send_friend_msg(outpack, inpack->uin, uin, MSG_TYPE_REQUEST);
