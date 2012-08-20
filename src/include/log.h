@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #define EMERG_LOG_LEVEL		0
 #define ALERT_LOG_LEVEL		1
@@ -21,9 +22,15 @@
 /* initialize logger, open log file */
 #define LOG_INIT(log_file)						\
 do {									\
-	/* TODO: need to change to log to file */			\
-	log_fp = stdout;						\
-	/*log_fp = fopen(log_file, "w");*/				\
+	if (!strcmp(log_file, "stdout")) {				\
+		log_fp = stdout;					\
+	} else if (!strcmp(log_file, "stderr")) {			\
+		log_fp = stderr;					\
+	} else {							\
+		char buf[128];						\
+		sprintf(buf, "%s-%u", log_file, getpid());		\
+		log_fp = fopen(buf, "w");				\
+	}								\
 	if (!log_fp) {							\
 		fprintf(stderr, "open log file %s failed\n", log_file);	\
 		log_fp = stdout;					\

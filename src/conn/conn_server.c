@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 {
 	struct conn_server server;
 
-	LOG_INIT("log_conn");
+	LOG_INIT("stdout");
 	conn_server_init(&server);
 
 	/* connect to user server */
