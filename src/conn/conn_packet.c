@@ -51,7 +51,7 @@ void send_offline_to_status(struct conn_server *server, uint32_t uin)
 	packet_init(packet);
 	struct packet *p = &packet->packet;
 	/* TODO: need to change to network byte order */
-	p->len = (18);
+	p->len = (22);
 	p->ver = (0x01);
 	p->cmd = (CMD_STATUS_CHANGE);
 	*((uint32_t *)((char *)p + 12)) = uin;
