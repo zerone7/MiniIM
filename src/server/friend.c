@@ -253,7 +253,7 @@ int friend_packet(struct packet *inpack, struct packet *outpack, int sockfd)
         break;
     case CMD_ADD_CONTACT_REPLY: // add friend request reply
         uin = *(uint32_t *)inpack->params;
-        /* add each other to their friend list add incread their friend count */
+        /* add each other to their friend list and increase their friend count */
         if (*PARAM_REPLY(inpack) == 1) {
             send_friend_msg(outpack, inpack->uin, uin, MSG_TYPE_ACCEPT);
             friend_add_contact(uin, inpack->uin);

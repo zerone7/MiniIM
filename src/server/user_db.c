@@ -29,6 +29,44 @@ void user_db_close()
     mysql_close(&mysql);
 }
 
+/* add a user to database */
+int user_add(char *nick, char *passwd)
+{
+    int uin;
+    char query_str[100];
+
+    assert(nick && passwd);
+    sprintf(query_str,"select max(uin) from user"); 
+    if (mysql_query(&mysql, query_str)) {
+        printf("Query Error: %s\n", mysql_error(&mysql));
+        return -1;
+    }
+
+    uin = 0;
+    result = mysql_use_result(&mysql);
+    if (result) {
+        row = mysql_fetch_row(result);
+        if (row)
+            uin = atoi(row[0]);
+        mysql_free_result(result);
+    } else {
+        printf("Use_result Error: %s\n", mysql_error(&mysql));
+        return -1;
+    }
+    
+    uin += 1;
+    sprintf(query_str,"insert into user set uin=%d, nick='%s', password='%s' contact_count=0",\
+            uin, nick, passwd); 
+    if (!mysql_query(&mysql, query_str)) {
+        printf("Inserted %lu rows\n", (unsigned long)mysql_affected_rows(&mysql));
+    } else {
+        printf("Insert Error: %s\n", mysql_error(&mysql));
+        return -1;
+    }
+
+    return uin;
+}
+
 /*
  * user_get_passwd - get user password
  * @uin: user uin

@@ -124,6 +124,7 @@ int user_conn_init()
         user_err("epoll_ctl: listen_fd error\n");
         return -1;
     }
+
     ev.events = EPOLLIN;
     ev.data.fd = status_fd;
     if (epoll_ctl(epfd, EPOLL_CTL_ADD, status_fd, &ev) == -1) {
@@ -181,6 +182,7 @@ int request_status_change(int uin, int sockfd, uint16_t stat)
 int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
 {
     char  *pnick, *password;
+    uint16_t len;
 
     assert(inpack && outpack);
     user_dbg("User_packet: processing packet\n");
@@ -217,6 +219,19 @@ int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
         /* packet len = headerlen(12) + nicklen(2) + strlen + strend(1) */
         fill_packet_header(outpack, PACKET_HEADER_LEN + 3 + strlen(pnick), \
                 SRV_SET_NICK_OK, inpack->uin);
+        write(sockfd, outpack, outpack->len);
+        break;
+    case CMD_REGISTER: //user register
+        pnick = PARAM_NICK(inpack);
+        len = *(uint16_t *)(inpack->params + 2 + *PARAM_NICKLEN(inpack));
+        password = (char *)(inpack->params + 4 + *PARAM_NICKLEN(inpack));
+        password[len] = '\0';
+        inpack->uin = user_add(pnick, password);
+        if (inpack->uin <= 0) {
+            user_err("user register error\n");
+            return -1;
+        }
+        fill_packet_header(outpack, PACKET_HEADER_LEN, SRV_REGISTER_OK, inpack->uin); 
         write(sockfd, outpack, outpack->len);
         break;
     case CMD_FRIEND_ADD: //increase user friend count

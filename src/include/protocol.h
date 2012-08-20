@@ -12,6 +12,7 @@
 #define CMD_KEEP_ALIVE          0x000A
 #define CMD_LOGIN               0x0101
 #define CMD_LOGOUT              0x0102
+#define CMD_REGISTER            0x0103
 #define CMD_SET_NICK            0x0201
 #define CMD_ADD_CONTACT         0x0301
 #define CMD_ADD_CONTACT_REPLY   0x0302
@@ -23,6 +24,7 @@
 /* replys from server to client */
 #define	SRV_ERROR               0x000E
 #define SRV_LOGIN_OK            0x0101
+#define SRV_LREGISTER_OK        0x0102
 #define SRV_SET_NICK_OK         0x0201
 #define SRV_ADD_CONTACT_WAIT    0x0301
 #define SRV_CONTACT_LIST        0x0401
