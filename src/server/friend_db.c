@@ -145,6 +145,33 @@ int get_friend_nick(uint32_t uin, uint16_t *plen, char *nick)
     }
 }
 
+/* Check whether the uin is valia or not */
+int friend_check_uin(int uin)
+{
+    char query_str[50];
+
+    sprintf(query_str,"select uin from user where uin = %d", uin); 
+    if (mysql_query(&user, query_str)) {
+        printf("Query Error: %s\n", mysql_error(&user));
+        return -2;
+    }
+
+    result = mysql_use_result(&user);
+    if (result) {
+        row = mysql_fetch_row(result);
+        if (row) {
+            mysql_free_result(result);
+            return 0;
+        } else {
+            mysql_free_result(result);
+            return -1;
+        }
+    } else {
+        printf("Use_result Error: %s\n", mysql_error(&user));
+        return -2;
+    }
+}
+
 /* add friend to user's friend list */
 int friend_add_contact(int uin, int friend)
 {

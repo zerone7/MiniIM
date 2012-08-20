@@ -47,6 +47,10 @@
 #define MSG_TYPE_REFUSE         3
 #define MSG_TYPE_CHAT           4
 
+/* friend error type */
+#define ERR_ALREADY_FRIEDN      1
+#define ERR_NOT_EXIST           2
+
 #define MAX_PACKET_LEN          5018  
 #define PACKET_HEADER_LEN       12
 
