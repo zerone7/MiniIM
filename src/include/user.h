@@ -26,5 +26,6 @@
     printf("USER: " format, ##arg);
 
 int user_conn_init();
+int request_status_change(int uin, int sockfd, uint16_t stat);
 int user_packet(struct packet *inpack, struct packet *outpack, int sockfd);
 int passwd_verify(int uin, char *passwd);
