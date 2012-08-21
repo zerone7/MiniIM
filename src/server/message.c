@@ -25,7 +25,15 @@ static inline int add_con(uint32_t ip, uint16_t port, int sockfd)
 {
     struct con_info *new_con;
 
-    msg_dbg("add_con: ip %d, port %d\n", ip, port);
+    list_for_each_entry(new_con, &conns_head, node)
+        if(new_con->ip == ip && new_con->port == port)
+        {
+            msg_dbg("modify con: ip %d, port %d, fd %d\n", ip, port, sockfd);
+            new_con->sockfd = sockfd;
+            return 0;
+        }
+
+    msg_dbg("add_con: ip %d, port %d, fd %d\n", ip, port, sockfd);
     new_con = malloc(sizeof(struct con_info));
     if (!new_con) {
         msg_err("alloc struct con_info error\n");
