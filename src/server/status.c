@@ -1,7 +1,7 @@
 #include "status.h"
 
 #define MAX_USER        100000    
-#define MAX_ONLINE_USER 100
+#define MAX_ONLINE_USER 1000
 #define MAX_EVENTS      10
 #define ACCEPT          5
 
@@ -29,6 +29,10 @@ void main()
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
+    if (!(inpack && outpack)) {
+        stat_err("malloc error");
+        return;
+    }
 
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
@@ -106,9 +110,9 @@ void main()
 
 exit:
     stat_dbg("STATUS Exit\n");
-   // free(cache);
-   // free(inpack);
-   // free(outpack);
+    free(cache);
+    free(inpack);
+    free(outpack);
 }
 
 /* listen status packet */
@@ -151,7 +155,7 @@ int status_list_init()
     memset(cache, 0, sizeof(struct status_info) * MAX_ONLINE_USER);
 
     INIT_LIST_HEAD(&free_list_head);
-    for(i = 1; i <= MAX_ONLINE_USER; i++)
+    for(i = 0; i < MAX_ONLINE_USER; i++)
         list_add(&cache[i].node, &free_list_head);
 
     return 0;

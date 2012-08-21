@@ -33,7 +33,7 @@ static inline int add_con(uint32_t ip, uint16_t port, int sockfd)
             return 0;
         }
 
-    msg_dbg("add_con: ip %d, port %d, fd %d\n", ip, port, sockfd);
+    msg_dbg("add con: ip %d, port %d, fd %d\n", ip, port, sockfd);
     new_con = malloc(sizeof(struct con_info));
     if (!new_con) {
         msg_err("alloc struct con_info error\n");
@@ -55,6 +55,7 @@ static inline void del_con(int sockfd)
     list_for_each_entry(conn, &conns_head, node)
         if(conn->sockfd == sockfd)
         {
+            msg_dbg("delete con: ip %d port %d fd %d\n", conn->ip, conn->port, sockfd);
             list_del(&conn->node);
             free(conn);
             break;
@@ -88,6 +89,11 @@ void main()
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
+    if (!(inpack && outpack)) {
+        msg_err("malloc error");
+        return;
+    }
+
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
 
@@ -173,8 +179,8 @@ void main()
 
 exit:
     msg_dbg("==> Message process is going to exit !\n");
-    //free(inpack);
-    //free(outpack);
+    free(inpack);
+    free(outpack);
     message_db_close();
 }
 

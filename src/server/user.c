@@ -21,6 +21,10 @@ void main()
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
     status_pack = malloc(MAX_PACKET_LEN);
+    if (!(inpack && outpack && status_pack)) {
+        user_err("malloc error");
+        return;
+    }
 
     size = sizeof(struct sockaddr_in);
     memset(&client_addr, 0, sizeof(client_addr));
@@ -95,6 +99,9 @@ void main()
 
 exit:
     user_dbg("==> User process is going to exit !\n");
+    free(inpack);
+    free(outpack);
+    free(status_pack);
     user_db_close();
 }
 

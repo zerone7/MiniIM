@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 
 #include "simple_client.h"
+#define PORT1   49872
+#define PORT2   49893
 
 int main(int argc, char *argv[])
 {
@@ -73,6 +75,19 @@ int connect_to(int module)
         perror("socket");
         return -1;
     }
+    if(module == USER)
+    {
+        struct sockaddr_in uaddr;
+        memset(&uaddr, 0, sizeof(addr));
+        uaddr.sin_family = AF_INET;
+        uaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        uaddr.sin_port = htons(PORT2);
+
+        if (bind(fd, (struct sockaddr *)&uaddr, sizeof(uaddr)) < 0) {
+            perror("bind");
+            return -1;
+        }
+    }
 
     if(connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0)
     {
@@ -98,12 +113,12 @@ void user_test()
     addpack = (struct packet *)malloc(BUFSIZE);
     packet = (struct packet *)malloc(BUFSIZE);
 
-    sprintf(PARAM_PASSWD(loginpack), "10086");
+    sprintf(PARAM_PASSWD(loginpack), "10010");
     *PARAM_PASSLEN(loginpack) = 5;
     loginpack->len = HEADER_LEN + 5 + 2;
     loginpack->ver = 1;
     loginpack->cmd = 0x0101;
-    loginpack->uin = 10086;
+    loginpack->uin = 10010;
 
     printf("len %d, passwd: %s\n", loginpack->len, PARAM_PASSWD(loginpack));
 
@@ -121,7 +136,7 @@ void user_test()
         pcmd = strtok(cmd, " ");
         if(!strcmp(pcmd, "login\n")) // correclt loging packet
         {
-            loginpack->uin = 10086;
+            loginpack->uin = 10010;
 		    send(client_sockfd, loginpack, loginpack->len, 0);
             n = recv(client_sockfd, recvpack, BUFSIZE, 0);
             printf("receive %d bytes\n", n);
@@ -350,6 +365,14 @@ void message_test()
     getsockname(client_sockfd, (struct sockaddr *)&addr, &addrlen); 
 	printf("connected to server MESSAGE, my ip %d\n", (int)addr.sin_addr.s_addr);
 
+    packet->len = 18;
+    packet->ver = 1;
+    packet->cmd = CMD_CONN_INFO;
+    packet->uin = 10086;
+    *(uint32_t *)packet->params = ntohl(inet_addr("127.0.0.1"));
+    *(uint16_t *)(packet->params + 4) = PORT2;
+    write(client_sockfd, packet, packet->len);
+
     while(fgets(cmd, 20, stdin))
     {
         pcmd = strtok(cmd, " ");
@@ -389,22 +412,16 @@ void message_test()
         }
         else if(!strcmp(pcmd, "chat"))
         {
-            /* From uin */
-            pcmd = strtok(NULL, " ");
+            /*pcmd = strtok(NULL, " "); // From uin
             uin = atoi(pcmd);
             chatpack->uin = uin;
             chatpack->ver = 1;
             chatpack->cmd = CMD_MESSAGE;
             chatpack->len = HEADER_LEN + 11 + strlen(chat);
 
-            /* To uin */
-            pcmd = strtok(NULL, " ");
+            pcmd = strtok(NULL, " "); //to uin
             uin = atoi(pcmd);
             *PARAM_TO_UIN(chatpack) = uin;
-
-            /* 设置用户连接的接口服务器IP */
-            //pip = PARAM_IP(chatpack);
-            //*pip = (uint32_t)addr.sin_addr.s_addr;
 
             *PARAM_LEN(chatpack) = strlen(chat) + 1;
 
@@ -413,14 +430,14 @@ void message_test()
             printf("Chat_msg: from %d, to %d, len %d\n", chatpack->uin, *PARAM_TO_UIN(chatpack),\
                     *PARAM_LENGTH(chatpack));
             printf("Message: %s\n", chatpack->params+10);
-
-/*           n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
+*/
+           n = recv(client_sockfd, recvpack, BUFSIZE, 0); 
             printf("receive %d bytes\n", n);
             printf("Packet: len %d, cmd %04x, uin %d\n", recvpack->len, \
                     recvpack->cmd, recvpack->uin);
             printf("Message: from %d, type %d, len %d, msg '%s'\n", *PARAM_UIN(recvpack), \
                     *PARAM_TYPE(recvpack), *(uint16_t *)(recvpack->params+10), (char *)recvpack->params+12);
-*/        }
+        }
         else if(!strcmp(pcmd, "srv\n"))
         {
             send(client_sockfd, "close", 6, 0);
