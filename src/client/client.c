@@ -390,10 +390,13 @@ static void print_chat_message(struct client_user *user, struct list_packet *lp)
 {
 	struct packet *p = &lp->packet;
 	uint32_t to_uin = get_field_htonl(p, PARAMETERS_OFFSET);
+	char nick[MAX_NICK_LENGTH + 1];
+	get_nick(user->contact_table, to_uin, nick);
 	int length = get_field_htons(p, PARAMETERS_OFFSET + 10);
-	char *msg = (char *)p + 12;
+	char *msg = (char *)p + PARAMETERS_OFFSET + 12;
 	msg[length - 1] = '\0';
 	/* TODO: need to print nick and time */
+	printf("\n%u(%s) said: \n", to_uin, nick);
 	printf("%s\n", msg);
 }
 
