@@ -22,6 +22,11 @@ void main()
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
+    if (!(inpack && outpack)) {
+        frd_err("malloc error\n");
+        return;
+    }
+
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
     frd_dbg("Friend start: %d\n", getpid());
@@ -100,10 +105,9 @@ void main()
 
 exit:
     frd_dbg("==> Friend process is going to exit !\n");
-    //free(inpack);
-    //free(outpack);
+    free(inpack);
+    free(outpack);
     friend_db_close();
-    close(listen_fd);
 }
 
 /* listen friend packet, connect to status and message module */

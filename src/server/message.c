@@ -89,6 +89,11 @@ void main()
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
+    if (!(inpack && outpack)) {
+        msg_err("malloc error");
+        return;
+    }
+
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
 
@@ -174,8 +179,8 @@ void main()
 
 exit:
     msg_dbg("==> Message process is going to exit !\n");
-    //free(inpack);
-    //free(outpack);
+    free(inpack);
+    free(outpack);
     message_db_close();
 }
 
