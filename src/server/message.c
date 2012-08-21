@@ -25,6 +25,7 @@ static inline int add_con(uint32_t ip, uint16_t port, int sockfd)
 {
     struct con_info *new_con;
 
+    msg_dbg("add_con: ip %d, port %d\n", ip, port);
     new_con = malloc(sizeof(struct con_info));
     if (!new_con) {
         msg_err("alloc struct con_info error\n");
@@ -324,7 +325,7 @@ int message_packet(struct packet *inpack, struct packet *outpack, int fd)
         break;
     case CMD_CONN_INFO:
         /* map ip address to socket fd */
-        add_con(*(uint32_t *)inpack->params, *(uint16_t *)(inpack->params+2), fd);
+        add_con(*(uint32_t *)inpack->params, *(uint16_t *)(inpack->params+4), fd);
         break;
     default:
         return -1;

@@ -163,14 +163,17 @@ int request_status_change(int uin, int sockfd, uint16_t stat)
     struct sockaddr_in addr;
     socklen_t   len;
 
+    len = sizeof(struct sockaddr_in);
     getpeername(sockfd, (struct sockaddr *)&addr, &len);
     /* login success, change user status  */
     fill_packet_header(status_pack, PACKET_HEADER_LEN + 12, \
             CMD_STATUS_CHANGE, uin);
     *PARAM_UIN(status_pack) = uin;
-    *PARAM_IP(status_pack)  = host32((uint32_t)addr.sin_addr.s_addr);
-    *PARAM_PORT(status_pack) = host16((uint16_t)addr.sin_port);
+    *PARAM_IP(status_pack)  = (uint32_t)ntohl(addr.sin_addr.s_addr);
+    *PARAM_PORT(status_pack) = (uint16_t)ntohs(addr.sin_port);
     *PARAM_TYPE(status_pack) = stat;
+    user_dbg("status change: ip %d, port %d\n", *PARAM_IP(status_pack), \
+            *PARAM_PORT(status_pack));
     write(status_fd, status_pack, status_pack->len);
 }
 
