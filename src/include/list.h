@@ -248,7 +248,7 @@ static inline void list_splice_tail_init(struct list_head *list,
 #define list_for_each_entry_safe(pos, n, head, member)	\
 	for (pos = list_entry((head)->next, typeof(*pos), member),	\
 			n = list_entry(pos->member.next, typeof(*pos), member);	\
-			&pos->memebr != (head);	\
+			&pos->member != (head);	\
 			pos = n, n = list_entry(n->member.next, typeof(*n), member))
 
 #endif
