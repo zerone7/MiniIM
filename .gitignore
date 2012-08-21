@@ -1,2 +1,4 @@
 *.o
 *~
+simple_client.c
+simple_client.h
