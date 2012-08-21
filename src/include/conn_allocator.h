@@ -24,7 +24,7 @@ struct __item {
 /**
  * initialize the allocator
  */
-static inline allocator_init(struct allocator *a, size_t size)
+static inline void allocator_init(struct allocator *a, size_t size)
 {
 	assert(a && size >= sizeof(struct __item));
 	INIT_LIST_HEAD(&a->free_list);
@@ -64,6 +64,7 @@ static inline void* allocator_zalloc(struct allocator *a)
 {
 	void *item = allocator_malloc(a);
 	memset(item, 0, a->element_size);
+	return item;
 }
 
 /**

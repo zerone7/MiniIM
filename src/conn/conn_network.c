@@ -44,6 +44,10 @@ static int create_and_bind(uint16_t port)
 		return -1;
 	}
 
+	/* avoid bind error */
+	int opt = 1;
+	setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
 	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -62,7 +66,6 @@ static int accept_handler(struct conn_server *server)
 {
 	struct epoll_event event;
 	while (1) {
-		struct sockaddr in_addr;
 		int infd;
 
 		if ((infd = accept(server->sfd, NULL, NULL)) < 0) {
@@ -425,6 +428,7 @@ static int write_handler(struct conn_server *server, int infd)
 	} else {
 		wait_for_read(server->efd, infd);
 	}
+	return 0;
 }
 
 /* prepare the socket */

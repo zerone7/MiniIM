@@ -11,6 +11,38 @@
 #include <arpa/inet.h>
 #include "log.h"
 
+static inline int connect_bind_to_server(const char *ip, uint16_t port,
+		const char *local_ip, uint16_t local_port)
+{
+	struct sockaddr_in addr;
+	int fd;
+
+	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		log_err("create socket error\n");
+		return -1;
+	}
+
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = htons(local_port);
+	if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0) {
+		log_err("can not bind to port\n");
+		return -1;
+	}
+
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr(ip);
+	addr.sin_port = htons(port);
+
+	if (connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0) {
+		log_err("connect to server %s error\n", ip);
+		return -1;
+	}
+	return fd;
+}
+
 static inline int connect_to_server(const char *ip, uint16_t port)
 {
 	struct sockaddr_in addr;
@@ -36,7 +68,7 @@ static inline int connect_to_server(const char *ip, uint16_t port)
 /* set socket to non blocking */
 static inline int set_nonblocking(int socket_fd)
 {
-	int flags, ret;
+	int flags;
 
 	if ((flags = fcntl(socket_fd, F_GETFL, 0)) < 0) {
 		log_err("can not get socket lock\n");
