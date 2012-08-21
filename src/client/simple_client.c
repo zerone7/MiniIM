@@ -87,27 +87,28 @@ void user_test()
 {
 	int client_sockfd;
 	int len, n;
-    char cmd[50];
+    char cmd[100];
     char *pcmd;
     char nick[] = "justanick";
-    struct packet *loginpack, *nickpack, *recvpack, *addpack;
+    struct packet *loginpack, *nickpack, *recvpack, *addpack, *packet;
 
     loginpack = (struct packet *)malloc(BUFSIZE);
     nickpack = (struct packet *)malloc(BUFSIZE);
     recvpack = (struct packet *)malloc(BUFSIZE);
     addpack = (struct packet *)malloc(BUFSIZE);
+    packet = (struct packet *)malloc(BUFSIZE);
 
     sprintf(PARAM_PASSWD(loginpack), "10086");
-    *PARAM_PASSLEN(loginpack) = 6;
-    loginpack->len = HEADER_LEN + sizeof("10086") + 2;
+    *PARAM_PASSLEN(loginpack) = 5;
+    loginpack->len = HEADER_LEN + 5 + 2;
     loginpack->ver = 1;
     loginpack->cmd = 0x0101;
     loginpack->uin = 10086;
 
     printf("len %d, passwd: %s\n", loginpack->len, PARAM_PASSWD(loginpack));
 
-    //client_sockfd = connect_to(USER);
-    client_sockfd = connect_to(CONN);
+    client_sockfd = connect_to(USER);
+    //client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to USER error\n");
@@ -160,6 +161,30 @@ void user_test()
             printf("Packet: len %d, cmd %04x, uin %d, nick %s, nicklen %d.\n", recvpack->len, \
                     recvpack->cmd, recvpack->uin, PARAM_NICK(recvpack), *PARAM_NICKLEN(recvpack));
         }
+        else if(!strcmp(cmd, "regist"))
+        {
+            packet->len = HEADER_LEN;
+            packet->ver = 1;
+            packet->cmd = CMD_REGISTER;
+            pcmd = strtok(NULL, " ");
+            strcpy(packet->params+2, pcmd);
+            len = strlen(pcmd)+1;
+            *(uint16_t *)(packet->params) = len;
+            packet->len += 2+len;
+            pcmd = strtok(NULL, " ");
+            *(uint16_t *)(packet->params+2+len) = strlen(pcmd);
+            packet->len += 2+strlen(pcmd);
+            strcpy(packet->params+4+len, pcmd);
+            send(client_sockfd, packet, packet->len, 0);
+            printf("register, nick '%s' len %d, passwd '%s' len %d\n", packet->params + 2, \
+                    *(uint16_t *)packet->params, packet->params+4+len, \
+                    *(uint16_t *)(packet->params + 2 + len));
+
+            n = recv(client_sockfd, recvpack, BUFSIZE, 0);
+            printf("receive %d bytes\n", n);
+            printf("Packet: len %d, cmd %04x, uin %d.\n", recvpack->len, recvpack->cmd, \
+                    recvpack->uin);
+        }
         else if(!strcmp(cmd, "srv\n"))
         {
             send(client_sockfd, "close", 6, 0);
@@ -193,8 +218,8 @@ void status_test()
     sstatpack = (struct packet *)malloc(BUFSIZE);
     recvpack = (struct packet *)malloc(BUFSIZE);
 
-    //client_sockfd = connect_to(STATUS);
-    client_sockfd = connect_to(CONN);
+    client_sockfd = connect_to(STATUS);
+    //client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to USER error\n");
@@ -314,8 +339,8 @@ void message_test()
 
     sprintf(chat,"%s", "This is a chat message example, hehe :)");
 
-    //client_sockfd = connect_to(MESSAGE);
-    client_sockfd = connect_to(CONN);
+    client_sockfd = connect_to(MESSAGE);
+    //client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to MESSAGE error\n");
@@ -464,8 +489,8 @@ void friend_test()
     recvpack = (struct packet *)malloc(BUFSIZE);
     packet = (struct packet *)malloc(BUFSIZE);
 
-    //client_sockfd = connect_to(FRIEND);
-    client_sockfd = connect_to(CONN);
+    client_sockfd = connect_to(FRIEND);
+    //client_sockfd = connect_to(CONN);
     if(client_sockfd < 0)
     {
         printf("connect to FRIEND error\n");

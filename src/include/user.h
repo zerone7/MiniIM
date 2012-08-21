@@ -7,7 +7,8 @@
 
 #define PARAM_UIN(x)        (uint32_t *)x->params
 #define PARAM_IP(x)         (uint32_t *)(x->params + 4)
-#define PARAM_TYPE(x)       (uint16_t *)(x->params + 8)
+#define PARAM_PORT(x)       (uint16_t *)(x->params + 8)
+#define PARAM_TYPE(x)       (uint16_t *)(x->params + 10)
 
 #ifdef DEBUG_USER
 #define user_dbg(format, arg...)        \

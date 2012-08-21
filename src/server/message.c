@@ -8,7 +8,7 @@
 #define MSG_PARAMS_LEN  MAX_PACKET_LEN - PACKET_HEADER_LEN
 
 static int listen_fd, status_fd, epfd;
-static struct con_info *conns;
+static struct list_head  conns_head;
 static struct msg_list *map[MAX_USER+1];
 
 /* send get status request to status module */
@@ -17,6 +17,51 @@ static inline void request_status(int uin, struct packet *outpack)
     fill_packet_header(outpack, PACKET_HEADER_LEN + 4, CMD_GET_STATUS, uin);
     *(uint32_t *)outpack->params = uin;
     write(status_fd, outpack, outpack->len);
+}
+
+
+/* create an ip address & port to socket fd mapping */
+static inline int add_con(uint32_t ip, uint16_t port, int sockfd)
+{
+    struct con_info *new_con;
+
+    new_con = malloc(sizeof(struct con_info));
+    if (!new_con) {
+        msg_err("alloc struct con_info error\n");
+        return -1;
+    }
+    
+    new_con->ip = ip;
+    new_con->port = port;
+    new_con->sockfd = sockfd;
+    list_add_tail(&new_con->node, &conns_head);
+    return 0;
+}
+
+/* delete an ip mapping */
+static inline void del_con(int sockfd)
+{
+    struct con_info *conn;
+
+    list_for_each_entry(conn, &conns_head, node)
+        if(conn->sockfd == sockfd)
+        {
+            list_del(&conn->node);
+            free(conn);
+            break;
+        }
+}
+
+/* map the ip address & port to socket fd */
+static inline int con_to_fd(uint32_t ip, uint16_t port)
+{
+    struct con_info *conn;
+
+    list_for_each_entry(conn, &conns_head, node)
+        if(conn->ip == ip && conn->port == port)
+            return conn->sockfd;
+
+    return -1;
 }
 
 #ifndef _MODULE_
@@ -34,10 +79,12 @@ void main()
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
-
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
 
+    /* init ip map list head */
+    INIT_LIST_HEAD(&conns_head);
+    
     /* Init database connection */
     if (message_db_init()) {
         msg_err("database connect error\n"); 
@@ -71,8 +118,6 @@ void main()
                 msg_dbg("client %s, port %d connected\n", inet_ntoa(client_addr.sin_addr), \
                         ntohs(client_addr.sin_port));
 
-                /* map ip address to socket fd */
-                add_con((uint32_t)client_addr.sin_addr.s_addr, client_fd);
                 ev.events = EPOLLIN;
                 ev.data.fd = client_fd;
                 if (epoll_ctl(epfd, EPOLL_CTL_ADD, client_fd, &ev) == -1) {
@@ -124,63 +169,6 @@ exit:
     message_db_close();
 }
 
-/* create an ip address to socket fd mapping */
-int add_con(uint32_t ip, int sockfd)
-{
-    struct con_info *new_con;
-
-    new_con = malloc(sizeof(struct con_info));
-    if (!new_con) {
-        msg_err("alloc struct con_info error\n");
-        return -1;
-    }
-    
-    new_con->ip = ip;
-    new_con->sockfd = sockfd;
-    new_con->next = conns;
-    conns = new_con;
-
-    return 0;
-}
-
-/* delete an ip mapping */
-void del_con(int sockfd)
-{
-    struct con_info *con, *next;
-
-    if (conns->sockfd == sockfd)
-        conns == conns->next;
-    else {
-        con = conns;
-        next = con->next;
-        while (next) {
-            if (next->sockfd == sockfd) {
-                con->next = next->next;
-                break;
-            } else {
-                con = next;
-                next = next->next;
-            }
-        }
-    }
-}
-
-/* map the ip address to socket fd */
-int ip_to_fd(uint32_t ip)
-{
-    struct con_info *con;
-
-    con = conns;
-    while (con) {
-        if (con->ip == ip)
-            return conns->sockfd;
-        else
-            con = con->next;
-    }
-
-    return -1;
-}
-
 /* store user offline message */
 int store_offline_msg(int uin)
 {
@@ -201,7 +189,7 @@ int store_offline_msg(int uin)
 }
 
 /* send message to the server that the user connected to */
-int send_msg(int uin, uint32_t ip, struct packet *outpack)
+int send_msg(int uin, uint32_t ip, uint16_t port, struct packet *outpack)
 {
     int sockfd;
     struct msg_list *msg;
@@ -210,7 +198,7 @@ int send_msg(int uin, uint32_t ip, struct packet *outpack)
     msg_dbg("Sending message -->\n");
     msg = map[uin];
     if (msg) {
-        sockfd = ip_to_fd(ip);
+        sockfd = con_to_fd(ip, port);
         msg_dbg("Send msg to uin(%d), ip(%d), fd(%d)\n", uin, ip, sockfd);
         if (sockfd < 0)
             return sockfd;
@@ -327,12 +315,16 @@ int message_packet(struct packet *inpack, struct packet *outpack, int fd)
         break;
     case REP_STATUS: //send message or store offline message according to user status
         uin = *PARAM_TO_UIN(inpack);
-        msg_dbg("Packet REP_STATUS: len %d, uin %d, stat %d, ip %d.\n", inpack->len, uin, \
-                *PARAM_TYPE(inpack), *PARAM_IP(inpack));
-        if (*PARAM_TYPE(inpack)) //online
-            send_msg(uin, *PARAM_IP(inpack), outpack);
+        msg_dbg("Packet REP_STATUS: len %d, uin %d, stat %d, ip %d, port %d.\n", inpack->len,\
+                uin, *PARAM_STAT(inpack), *PARAM_IP(inpack), *PARAM_PORT(inpack));
+        if (*PARAM_STAT(inpack)) //online
+            send_msg(uin, *PARAM_IP(inpack), *PARAM_PORT(inpack), outpack);
         else //offline
             store_offline_msg(uin);
+        break;
+    case CMD_CONN_INFO:
+        /* map ip address to socket fd */
+        add_con(*(uint32_t *)inpack->params, *(uint16_t *)(inpack->params+2), fd);
         break;
     default:
         return -1;

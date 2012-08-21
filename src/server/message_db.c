@@ -77,7 +77,7 @@ int  message_get(int uin, char *buff, int *pleft)
         }
     }
 
-    /* COUNT 字段 */
+    /* COUNT field */
     pcount = (uint16_t *)buff;
     *pcount = 0;
     buff += 2;

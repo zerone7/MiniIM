@@ -6,6 +6,7 @@
 #define CMD_KEEP_ALIVE          0x000A
 #define CMD_LOGIN               0x0101
 #define CMD_LOGOUT              0x0102
+#define CMD_REGISTER            0x0103
 #define CMD_SET_NICK            0x0201
 #define CMD_ADD_CONTACT         0x0301
 #define CMD_ADD_CONTACT_REPLY   0x0302

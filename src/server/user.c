@@ -165,10 +165,11 @@ int request_status_change(int uin, int sockfd, uint16_t stat)
 
     getpeername(sockfd, (struct sockaddr *)&addr, &len);
     /* login success, change user status  */
-    fill_packet_header(status_pack, PACKET_HEADER_LEN + 10, \
+    fill_packet_header(status_pack, PACKET_HEADER_LEN + 12, \
             CMD_STATUS_CHANGE, uin);
     *PARAM_UIN(status_pack) = uin;
     *PARAM_IP(status_pack)  = (uint32_t)addr.sin_addr.s_addr;
+    *PARAM_PORT(status_pack) = (uint16_t)addr.sin_port;
     *PARAM_TYPE(status_pack) = stat;
     write(status_fd, status_pack, status_pack->len);
 }
