@@ -27,6 +27,8 @@ struct conn_server {
 	int contact_fd;		/* socket connect to contact server */
 	int status_fd;		/* socket connect to status server */
 	int message_fd;		/* socket connect to message server */
+	uint32_t conn_user_ip;
+	uint16_t conn_user_port;
 	uint16_t port;		/* listen port */
 };
 

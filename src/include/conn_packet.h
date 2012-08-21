@@ -14,6 +14,7 @@ struct conn_server;
 
 void close_connection(struct conn_server *server, struct connection *conn);
 void send_offline_to_status(struct conn_server *server, uint32_t uin);
+void send_conn_info_to_message(struct conn_server *server);
 
 /* client packet handler */
 void cmd_packet_handler(struct conn_server *server, struct connection *conn,
