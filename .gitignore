@@ -5,5 +5,5 @@ simple_client.h
 log*
 dump*
 src/server/server
-client
-conn_server
+src/client/client
+src/conn/conn_server

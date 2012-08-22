@@ -65,7 +65,7 @@ static int contact_compare(struct contact *lhs, struct contact *rhs)
 
 static void ui_print_contacts(struct contact *contact_map)
 {
-	if (!HASH_COUNT(contact_map)) {
+	if (!contact_map || !HASH_COUNT(contact_map)) {
 		return;
 	}
 
