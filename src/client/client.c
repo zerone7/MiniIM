@@ -26,7 +26,7 @@ static void get_nick(struct contact *contact_map, uint32_t uin, char *str)
 	if (c) {
 		strcpy(str, c->nick);
 	} else {
-		strcpy(str, "stranger");
+		sprintf(str, "%u", uin);
 	}
 }
 
@@ -96,7 +96,7 @@ static int ui_chat(struct client_user *user, char *buf, int count)
 	sscanf(p, "%u", &user->chat_uin);
 	printf("%u\n", user->chat_uin);
 	user->mode = CHAT_MODE;
-	printf("enter chat mode\n");
+	printf("enter chat mode, type message to send to your friend\n");
 	return 0;
 }
 
@@ -116,12 +116,24 @@ static inline void ui_print_refuse(struct message *msg)
 	printf("%u refuse your friend request\n", msg->uin);
 }
 
-static inline void ui_print_chat(struct message *msg)
+static inline void ui_print_chat(struct client_user *user, struct message *msg)
 {
-	printf("%u said:\n", msg->uin);
+	char nick[MAX_NICK_LENGTH + 1];
+	time_t rawtime;
+	struct tm *timeinfo;
+	char buffer[16];
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	memset(buffer, 0, sizeof(buffer));
+	strftime(buffer, sizeof(buffer), "%X", timeinfo);
+	get_nick(user->contact_map, msg->uin, nick);
+
+	printf("%s %s: \n", nick, buffer);
 	printf("%s\n", msg->msg);
 }
 
+/* show stored message, could be online msg or offline msg */
 static void ui_print_message(struct client_user *user, int i)
 {
 	assert(i <= HASH_COUNT(user->msg_map));
@@ -154,7 +166,7 @@ static void ui_print_message(struct client_user *user, int i)
 	case MSG_TYPE_CHAT:
 		user->chat_uin = msg->uin;
 		user->mode = CHAT_MODE;
-		ui_print_chat(msg);
+		ui_print_chat(user, msg);
 		break;
 	default:
 		log_warning("unknown message type\n");
@@ -307,7 +319,7 @@ static int ui_show_chat_message(struct client_user *user)
 
 	struct message *current, *tmp;
 	list_for_each_entry_safe(current, tmp, &msg_map->head, list) {
-		ui_print_chat(current);
+		ui_print_chat(user, current);
 		list_del(&current->list);
 		message_destory(current);
 	}
