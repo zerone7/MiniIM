@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "modules.h"
+#include "packet_dump.h"
 #include "conn_log.h"
 #include "conn_server.h"
 #include "conn_packet.h"
@@ -8,6 +9,7 @@
 #include "conn_network.h"
 
 FILE *log_fp = NULL;
+FILE *dump_fp = NULL;
 
 int conn_server_init(struct conn_server *server)
 {
@@ -31,6 +33,11 @@ int conn_server_init(struct conn_server *server)
 	/* initialize socket fd to connection hash map, set socket fd to be key */
 	HSET_INIT(&server->fd_conn_map, sizeof(struct fd_entry));
 	__set_key_size(&server->fd_conn_map, sizeof(int));
+
+	inet_pton(AF_INET, CONN_USER_IP, &server->conn_user_ip);
+	server->conn_user_ip = ntohl(server->conn_user_ip);
+	server->conn_user_port = CONN_USER_PORT;
+
 	return 0;
 }
 
@@ -38,7 +45,8 @@ int main(int argc, char *argv[])
 {
 	struct conn_server server;
 
-	LOG_INIT("stdout");
+	LOG_INIT("log_conn");
+	DUMP_INIT("dump_conn");
 	conn_server_init(&server);
 
 	/* connect to user server */
@@ -51,7 +59,8 @@ int main(int argc, char *argv[])
 	server.user_conn.sfd = fd;
 	log_notice("connect to user server %s(%hu)\n",
 			USER_IP, USER_PORT);
-
+	get_sock_info(server.user_conn.sfd, &server.conn_user_ip,
+			&server.conn_user_port);
 
 	/* connect to contact server */
 	if ((fd = connect_to_server(FRIEND_IP, FRIEND_PORT)) < 0) {
@@ -98,10 +107,12 @@ int main(int argc, char *argv[])
 	add_to_epoll(server.efd, server.contact_conn.sfd);
 	add_to_epoll(server.efd, server.status_conn.sfd);
 	add_to_epoll(server.efd, server.message_conn.sfd);
+	send_conn_info_to_message(&server);
 
 	log_notice("starting epoll loop\n");
 	epoll_loop(&server);
 
+	DUMP_DESTROY();
 	LOG_DESTROY();
 	return 0;
 }

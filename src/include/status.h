@@ -3,7 +3,8 @@
 
 #define PARAM_UIN(x)    (uint32_t *)x->params
 #define PARAM_IP(x)     (uint32_t *)(x->params + 4)
-#define PARAM_TYPE(x)   (uint16_t *)(x->params + 8)
+#define PARAM_PORT(x)   (uint16_t *)(x->params + 8)
+#define PARAM_TYPE(x)   (uint16_t *)(x->params + 10)
 
 #ifdef DEBUG_STATUS
 #define stat_dbg(format, arg...)        \
@@ -28,10 +29,11 @@
 struct status_info
 {
     struct list_head node;
-    int con_ip;
+    uint32_t con_ip;
+    uint16_t con_port;
 };
 
-/* user_status - 用户状态信息 */
+/* user_status - user status information */
 struct user_status
 {
     uint32_t uin;
@@ -45,5 +47,5 @@ void get_multi_status(uint32_t *uins, uint16_t num, \
 struct status_info * status_list_get();
 int status_conn_init();
 int status_list_init();
-int set_status(uint32_t uin, uint32_t ip, uint16_t stat);
-int get_status(uint32_t uin, uint32_t *pip, uint16_t *pstat);
+int set_status(uint32_t uin, uint32_t ip, uint16_t port, uint16_t stat);
+int get_status(uint32_t uin, uint32_t *pip, uint16_t *pport, uint16_t *pstat);

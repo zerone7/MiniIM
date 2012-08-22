@@ -21,6 +21,10 @@ void main()
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
     status_pack = malloc(MAX_PACKET_LEN);
+    if (!(inpack && outpack && status_pack)) {
+        user_err("malloc error");
+        return;
+    }
 
     size = sizeof(struct sockaddr_in);
     memset(&client_addr, 0, sizeof(client_addr));
@@ -95,6 +99,9 @@ void main()
 
 exit:
     user_dbg("==> User process is going to exit !\n");
+    free(inpack);
+    free(outpack);
+    free(status_pack);
     user_db_close();
 }
 
@@ -163,13 +170,17 @@ int request_status_change(int uin, int sockfd, uint16_t stat)
     struct sockaddr_in addr;
     socklen_t   len;
 
+    len = sizeof(struct sockaddr_in);
     getpeername(sockfd, (struct sockaddr *)&addr, &len);
     /* login success, change user status  */
-    fill_packet_header(status_pack, PACKET_HEADER_LEN + 10, \
+    fill_packet_header(status_pack, PACKET_HEADER_LEN + 12, \
             CMD_STATUS_CHANGE, uin);
     *PARAM_UIN(status_pack) = uin;
-    *PARAM_IP(status_pack)  = (uint32_t)addr.sin_addr.s_addr;
+    *PARAM_IP(status_pack)  = (uint32_t)ntohl(addr.sin_addr.s_addr);
+    *PARAM_PORT(status_pack) = (uint16_t)ntohs(addr.sin_port);
     *PARAM_TYPE(status_pack) = stat;
+    user_dbg("status change: ip %d, port %d\n", *PARAM_IP(status_pack), \
+            *PARAM_PORT(status_pack));
     write(status_fd, status_pack, status_pack->len);
 }
 

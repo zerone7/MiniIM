@@ -3,7 +3,7 @@
 /* connect to one of the server modules */
 int connect_to(int module)
 {
-    int fd;
+    int fd, optval;
     struct sockaddr_in addr;
 
     memset(&addr, 0, sizeof(addr));
@@ -32,6 +32,11 @@ int connect_to(int module)
 
     if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket");
+        return -1;
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) {
+        perror("setsockopt");
         return -1;
     }
 
@@ -153,6 +158,7 @@ int packet_read(int sockfd, char *buff, int len, int epfd)
                 perror("packet_read");
                 return -2;
             } else if (nread == 0) {
+                printf("Close Socket(%d)\n", sockfd);
                 ev.data.fd = sockfd;
                 epoll_ctl(epfd, EPOLL_CTL_DEL, sockfd, &ev);
                 close(sockfd);

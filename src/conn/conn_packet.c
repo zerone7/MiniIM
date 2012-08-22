@@ -45,6 +45,7 @@ void close_connection(struct conn_server *server, struct connection *conn)
 	allocator_free(&server->conn_allocator, conn);
 }
 
+/* send offline message to status server */
 void send_offline_to_status(struct conn_server *server, uint32_t uin)
 {
 	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
@@ -63,6 +64,22 @@ void send_offline_to_status(struct conn_server *server, uint32_t uin)
 	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);*/
 	list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
 	wait_for_write(server->efd, server->status_conn.sfd);
+}
+
+/* send conn's ip and port which used to connect to user server
+ * to mesage server */
+void send_conn_info_to_message(struct conn_server *server)
+{
+	struct list_packet *lp = allocator_malloc(&server->packet_allocator);
+	packet_init(lp);
+	struct packet *p = &lp->packet;
+	p->len = 18;
+	p->ver = 0x01;
+	p->cmd = CMD_CONN_INFO;
+	*((uint32_t *)((char *)p + 12)) = server->conn_user_ip;
+	*((uint16_t *)((char *)p + 16)) = server->conn_user_port;
+	list_add_tail(&lp->list, &(server->message_conn.send_packet_list));
+	wait_for_write(server->efd, server->message_conn.sfd);
 }
 
 /* client packet handler */

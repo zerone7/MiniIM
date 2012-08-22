@@ -56,21 +56,22 @@ struct contact {
 	UT_hash_handle hh;
 };
 
-struct offline_msg_table {
+struct message_map {
 	uint32_t uin;
 	struct list_head head;
 	UT_hash_handle hh;
 };
 
-struct offline_msg {
+struct message {
 	struct list_head list;
 	uint32_t uin;
 	int type;
-	char *message;
+	char *msg;
 };
 
 struct packet_reader {
 	struct list_head recv_packet_list;
+	struct list_packet *lp;
 	int expect_bytes;
 	char length[2];
 	bool length_incomplete;
@@ -78,62 +79,89 @@ struct packet_reader {
 
 struct client_user {
 	struct packet_reader reader;
-	struct list_head recv_packet_list;
-	struct list_head send_packet_list;
-	struct list_head pending_list;
-	struct offline_msg_table *offline_msg_table;
-	struct packet *packet;
+	struct list_head wait_list;
+	struct list_head msg_list;
+	struct message_map *msg_map;
+	fd_set rset;
 	uint32_t uin;
 	uint32_t chat_uin;
 	int contact_count;
-	struct contact *contact_table;
+	struct contact *contact_map;
 	int socket;
-	int epoll;
 	int mode;
 };
 
 int read_packet(struct packet_reader *reader,
 		const char *buf, int count);
 
+static inline void message_destory(struct message *msg)
+{
+	if (msg->msg) {
+		free(msg->msg);
+		msg->msg = NULL;
+	}
+
+	if (msg->list.next != NULL) {
+		list_del(&msg->list);
+	}
+	free(msg);
+}
+
 static inline void packet_reader_init(struct packet_reader *pr)
 {
 	INIT_LIST_HEAD(&pr->recv_packet_list);
+	pr->lp = NULL;
 	pr->expect_bytes = 0;
 	pr->length_incomplete = false;
 }
 
 static inline struct list_head* get_recv_list(struct client_user *user)
 {
-	return (user) ? &user->recv_packet_list : NULL;
+	return (user) ? &(user->reader.recv_packet_list) : NULL;
 }
 
-static inline struct list_head* get_send_list(struct client_user *user)
+static inline struct list_head* get_wait_list(struct client_user *user)
 {
-	return (user) ? &user->send_packet_list : NULL;
+	return (user) ? &user->wait_list : NULL;
+}
+
+static inline struct list_head* get_msg_list(struct client_user *user)
+{
+	return (user) ? &user->msg_list : NULL;
 }
 
 void client_user_init(struct client_user *user);
-void cmd_keep_alive(struct client_user *user);
-void cmd_login(struct client_user *user,
+int cmd_keep_alive(struct client_user *user);
+int cmd_login(struct client_user *user,
 		uint32_t uin, const char *password);
-void cmd_logout(struct client_user *user);
-void cmd_set_nick(struct client_user *user, const char *nick);
-void cmd_add_contact(struct client_user *user, uint32_t to_uin);
-void cmd_add_contact_reply(struct client_user *user,
+int cmd_logout(struct client_user *user);
+int cmd_set_nick(struct client_user *user, const char *nick);
+int cmd_add_contact(struct client_user *user, uint32_t to_uin);
+int cmd_add_contact_reply(struct client_user *user,
 		uint32_t to_uin, uint16_t reply_type);
-void cmd_contact_list(struct client_user *user);
-void cmd_contact_info_multi(struct client_user *user,
+int cmd_contact_list(struct client_user *user);
+int cmd_contact_info_multi(struct client_user *user,
 		uint16_t count, uint32_t *uins);
-void cmd_message(struct client_user *user,
+int cmd_message(struct client_user *user,
 		uint32_t to_uin, const char *message);
-void cmd_offline_msg(struct client_user *user);
-#if 0
-void srv_error(struct client_user *user);
-void srv_login_ok(struct client_user *user);
-void srv_set_nick_ok(struct client_user *user);
-void srv_add_contact_wait(struct client_user *user);
-void srv_contact_list(struct client_user *user);
-void srv_contact_info_multi(struct client_user *user);
-void srv_offline_msg(struct client_user *user);
-#endif
+int cmd_offline_msg(struct client_user *user);
+
+int keep_alive(struct client_user *user);
+int login(struct client_user *user, uint32_t uin,
+		const char *password, char *nick);
+int logout(struct client_user *user);
+int set_nick(struct client_user *user, const char *nick, char *new_nick);
+int add_contact(struct client_user *user, uint32_t to_uin);
+int add_contact_reply(struct client_user *user,
+		uint32_t to_uin, uint16_t reply_type);
+int get_contacts(struct client_user *user);
+int contact_list(struct client_user *user, uint32_t **uins);
+int contact_info_multi(struct client_user *user,
+		uint16_t count, uint32_t *uins);
+int send_message(struct client_user *user,
+		uint32_t to_uin, const char *message);
+int get_offline_msg(struct client_user *user);
+int read_online_message(struct client_user *user);
+struct message_map* get_message_by_uin(struct client_user *user, uint32_t uin);
+
 #endif

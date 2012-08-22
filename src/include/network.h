@@ -11,6 +11,17 @@
 #include <arpa/inet.h>
 #include "log.h"
 
+static inline void get_sock_info(int sockfd, uint32_t *ip, uint16_t *port)
+{
+	struct sockaddr_in addr;
+	socklen_t len;
+
+	len = sizeof(struct sockaddr_in);
+	getsockname(sockfd, (struct sockaddr *)&addr, &len);
+	*ip= ntohl(addr.sin_addr.s_addr);
+	*port = ntohs(addr.sin_port);
+}
+
 static inline int connect_to_server(const char *ip, uint16_t port)
 {
 	struct sockaddr_in addr;
@@ -36,7 +47,7 @@ static inline int connect_to_server(const char *ip, uint16_t port)
 /* set socket to non blocking */
 static inline int set_nonblocking(int socket_fd)
 {
-	int flags, ret;
+	int flags;
 
 	if ((flags = fcntl(socket_fd, F_GETFL, 0)) < 0) {
 		log_err("can not get socket lock\n");

@@ -1,7 +1,7 @@
 #include "status.h"
 
 #define MAX_USER        100000    
-#define MAX_ONLINE_USER 100
+#define MAX_ONLINE_USER 1000
 #define MAX_EVENTS      10
 #define ACCEPT          5
 
@@ -29,6 +29,10 @@ void main()
 
     inpack = malloc(MAX_PACKET_LEN);
     outpack = malloc(MAX_PACKET_LEN);
+    if (!(inpack && outpack)) {
+        stat_err("malloc error");
+        return;
+    }
 
     memset(&client_addr, 0, sizeof(client_addr));
     size = sizeof(struct sockaddr_in);
@@ -106,9 +110,9 @@ void main()
 
 exit:
     stat_dbg("STATUS Exit\n");
-   // free(cache);
-   // free(inpack);
-   // free(outpack);
+    free(cache);
+    free(inpack);
+    free(outpack);
 }
 
 /* listen status packet */
@@ -151,7 +155,7 @@ int status_list_init()
     memset(cache, 0, sizeof(struct status_info) * MAX_ONLINE_USER);
 
     INIT_LIST_HEAD(&free_list_head);
-    for(i = 1; i <= MAX_ONLINE_USER; i++)
+    for (i = 0; i < MAX_ONLINE_USER; i++)
         list_add(&cache[i].node, &free_list_head);
 
     return 0;
@@ -171,7 +175,7 @@ struct status_info * status_list_get()
 }
 
 /* set user stat and ip address of the server that user connected to */
-int set_status(uint32_t uin, uint32_t ip, uint16_t stat)
+int set_status(uint32_t uin, uint32_t ip, uint16_t port, uint16_t stat)
 {
     struct status_info *info;
 
@@ -186,12 +190,15 @@ int set_status(uint32_t uin, uint32_t ip, uint16_t stat)
         info = status_list_get();
         map[uin] = info;
         info->con_ip = ip; 
+        info->con_port = port;
     }
     else { //offline
         if (!map[uin])
             return -1;
         info = map[uin];
         map[uin] = NULL;
+        info->con_ip = 0; 
+        info->con_port = 0;
         status_list_put(info);
     }
 
@@ -199,7 +206,7 @@ int set_status(uint32_t uin, uint32_t ip, uint16_t stat)
 }
 
 /* get user status info and store it in pip and pstat */
-int get_status(uint32_t uin, uint32_t *pip, uint16_t *pstat)
+int get_status(uint32_t uin, uint32_t *pip, uint16_t *pport, uint16_t *pstat)
 {
     assert(pip && pstat);
 
@@ -211,9 +218,11 @@ int get_status(uint32_t uin, uint32_t *pip, uint16_t *pstat)
     if (map[uin]) {
         *pstat = 1;
         *pip = map[uin]->con_ip;
+        *pport = map[uin]->con_port;
     } else {
         *pstat = 0;
         *pip = 0;
+        *pport = 0;
     }
 
     return 0;
@@ -248,9 +257,10 @@ int status_packet(struct packet *inpack, struct packet *outpack, int sockfd)
 
     switch (inpack->cmd) {
     case CMD_STATUS_CHANGE: //status chage request
-        stat_dbg("STATUS_CHANGE type: uin %d, stat: %d\n", *PARAM_UIN(inpack), \
-                *PARAM_TYPE(inpack));
-        if (set_status(*PARAM_UIN(inpack), *PARAM_IP(inpack), *PARAM_TYPE(inpack)))
+        stat_dbg("STATUS_CHANGE type: uin %d, stat: %d port %d\n", *PARAM_UIN(inpack), \
+                *PARAM_TYPE(inpack), *PARAM_PORT(inpack));
+        if (set_status(*PARAM_UIN(inpack), *PARAM_IP(inpack), *PARAM_PORT(inpack), \
+                    *PARAM_TYPE(inpack)))
             return -1;
         
         fill_packet_header(outpack, PACKET_HEADER_LEN, REP_STATUS_CHANGED, \
@@ -258,12 +268,13 @@ int status_packet(struct packet *inpack, struct packet *outpack, int sockfd)
         break;
     case CMD_GET_STATUS: //user status request
         *PARAM_UIN(outpack) = *PARAM_UIN(inpack);
-        if (get_status(*PARAM_UIN(inpack), PARAM_IP(outpack), PARAM_TYPE(outpack)))
+        if (get_status(*PARAM_UIN(inpack), PARAM_IP(outpack), PARAM_PORT(outpack), \
+                    PARAM_TYPE(outpack)))
             return -1;
 
-        stat_dbg("GET_STATUS: uin %d, stat %d\n", *PARAM_UIN(inpack), \
-                *PARAM_TYPE(outpack));
-        fill_packet_header(outpack, PACKET_HEADER_LEN+10, REP_STATUS, inpack->uin);
+        stat_dbg("GET_STATUS: uin %d, stat %d port %d\n", *PARAM_UIN(inpack), \
+                *PARAM_TYPE(outpack), *PARAM_PORT(outpack));
+        fill_packet_header(outpack, PACKET_HEADER_LEN+12, REP_STATUS, inpack->uin);
         break;
     case CMD_MULTI_STATUS: //multi-user status request
         num = *(uint16_t *)inpack->params;

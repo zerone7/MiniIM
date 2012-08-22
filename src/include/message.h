@@ -1,10 +1,13 @@
 #include "modules.h"
+#include "list.h"
 
 #define PARAM_TO_UIN(x)         (uint32_t *)x->params
 #define PARAM_TIMESTAMP(x)      (uint32_t *)(x->params + 4)
 #define PARAM_IP(x)             (uint32_t *)(x->params + 4)
 #define PARAM_LENGTH(x)         (uint16_t *)(x->params + 8)
 #define PARAM_TYPE(x)           (uint16_t *)(x->params + 8)
+#define PARAM_PORT(x)           (uint16_t *)(x->params + 8)
+#define PARAM_STAT(x)           (uint16_t *)(x->params + 10)
 #define PARAM_MESSAGE(x)        (char *) (x->params + 10)
 
 #define MSG_HEADER_LEN          12
@@ -56,15 +59,13 @@ struct msg_list
  */
 struct con_info
 {
-    struct con_info *next;
-    uint32_t        ip;
-    int             sockfd;
+    struct list_head    node;
+    uint32_t            ip;
+    uint16_t            port;
+    int                 sockfd;
 };
 
-int add_con(uint32_t ip, int sockfd);
-void del_con(int sockfd);
-int ip_to_fd(uint32_t ip);
-int send_msg(int uin, uint32_t ip, struct packet *outpack);
+int send_msg(int uin, uint32_t ip, uint16_t port, struct packet *outpack);
 int store_offline_msg(int uin);
 int message_packet(struct packet *inpack, struct packet *outpack, int fd);
 int message_conn_init();

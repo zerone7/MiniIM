@@ -1,8 +1,8 @@
 CC = gcc
 INCLUDE = -I../include
-SRC = $(wildcard *.c)
+SRC = $(wildcard client*.c)
 OBJS = $(SRC:.c=.o)
-BIN = conn_server
+BIN = client
 CFLAGS = -g -Wall
 
 all: $(OBJS) $(BIN)
