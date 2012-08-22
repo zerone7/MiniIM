@@ -155,7 +155,7 @@ int status_list_init()
     memset(cache, 0, sizeof(struct status_info) * MAX_ONLINE_USER);
 
     INIT_LIST_HEAD(&free_list_head);
-    for(i = 0; i < MAX_ONLINE_USER; i++)
+    for (i = 0; i < MAX_ONLINE_USER; i++)
         list_add(&cache[i].node, &free_list_head);
 
     return 0;
