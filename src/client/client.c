@@ -75,7 +75,7 @@ static void ui_print_contacts(struct contact *contact_map)
 		} else {
 			strcpy(buf, "offline");
 		}
-		printf("%d\t%s\t%s\n", current->uin, current->nick, buf);
+		printf("%d\t%s\t\t%s\n", current->uin, current->nick, buf);
 	}
 }
 
@@ -222,6 +222,7 @@ static int ui_show_usage_command(struct client_user *user)
 	printf("  list  \t-list you friends\n");
 	printf("  nick  \t-change your nick name\n");
 	printf("  chat [uin]\t-chat to your friend\n");
+	printf("  add [uin]\t-add friend\n");
 	return 0;
 }
 
@@ -284,6 +285,7 @@ static int auth_input(struct client_user *user, char *buf, int count)
 
 		user->mode = COMMAND_MODE;
 		ui_add_contact_reply(user, user->chat_uin, reply_type);
+		ui_show_usage_command(user);
 	} else {
 		printf("you should input yes or no\n");
 	}
