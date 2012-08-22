@@ -96,7 +96,7 @@ static int ui_chat(struct client_user *user, char *buf, int count)
 	sscanf(p, "%u", &user->chat_uin);
 	printf("%u\n", user->chat_uin);
 	user->mode = CHAT_MODE;
-	printf("enter chat mode, type message to send to your friend\n");
+	printf("enter chat mode, type message to send to your friend, use \\q to quit\n");
 	return 0;
 }
 
