@@ -11,36 +11,15 @@
 #include <arpa/inet.h>
 #include "log.h"
 
-static inline int connect_bind_to_server(const char *ip, uint16_t port,
-		const char *local_ip, uint16_t local_port)
+static inline void get_sock_info(int sockfd, uint32_t *ip, uint16_t *port)
 {
 	struct sockaddr_in addr;
-	int fd;
+	socklen_t len;
 
-	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		log_err("create socket error\n");
-		return -1;
-	}
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(local_port);
-	if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0) {
-		log_err("can not bind to port\n");
-		return -1;
-	}
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr(ip);
-	addr.sin_port = htons(port);
-
-	if (connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0) {
-		log_err("connect to server %s error\n", ip);
-		return -1;
-	}
-	return fd;
+	len = sizeof(struct sockaddr_in);
+	getsockname(sockfd, (struct sockaddr *)&addr, &len);
+	*ip= ntohl(addr.sin_addr.s_addr);
+	*port = ntohs(addr.sin_port);
 }
 
 static inline int connect_to_server(const char *ip, uint16_t port)

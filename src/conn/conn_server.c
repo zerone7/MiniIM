@@ -48,8 +48,7 @@ int main(int argc, char *argv[])
 
 	/* connect to user server */
 	int fd;
-	if ((fd = connect_bind_to_server(USER_IP, USER_PORT,
-					CONN_USER_IP, CONN_USER_PORT)) < 0) {
+	if ((fd = connect_to_server(USER_IP, USER_PORT)) < 0) {
 		log_err("can not connect to user server %s(%hu)\n",
 				USER_IP, USER_PORT);
 		return 0;
@@ -57,6 +56,8 @@ int main(int argc, char *argv[])
 	server.user_conn.sfd = fd;
 	log_notice("connect to user server %s(%hu)\n",
 			USER_IP, USER_PORT);
+	get_sock_info(server.user_conn.sfd, &server.conn_user_ip,
+			&server.conn_user_port);
 
 	/* connect to contact server */
 	if ((fd = connect_to_server(FRIEND_IP, FRIEND_PORT)) < 0) {
