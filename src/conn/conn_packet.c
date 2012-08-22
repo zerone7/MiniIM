@@ -79,6 +79,7 @@ void send_conn_info_to_message(struct conn_server *server)
 	*((uint32_t *)((char *)p + 12)) = server->conn_user_ip;
 	*((uint16_t *)((char *)p + 16)) = server->conn_user_port;
 	list_add_tail(&lp->list, &(server->message_conn.send_packet_list));
+	wait_for_write(server->efd, server->message_conn.sfd);
 }
 
 /* client packet handler */

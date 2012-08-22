@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 {
 	struct conn_server server;
 
-	LOG_INIT("stdout");
+	LOG_INIT("log_conn");
 	conn_server_init(&server);
 
 	/* connect to user server */
