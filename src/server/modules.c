@@ -3,7 +3,7 @@
 /* connect to one of the server modules */
 int connect_to(int module)
 {
-    int fd, optval;
+    int fd;
     struct sockaddr_in addr;
 
     memset(&addr, 0, sizeof(addr));
@@ -35,11 +35,6 @@ int connect_to(int module)
         return -1;
     }
 
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) {
-        perror("setsockopt");
-        return -1;
-    }
-
     if (connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0) {
         perror("connect");
         return -1;
@@ -51,8 +46,7 @@ int connect_to(int module)
 /* bind and listen on specific ip address and port */
 int service(int module, int con_num)
 {
-    int fd;
-    int ret;
+    int fd, optval;
     struct sockaddr_in addr;
 
     memset(&addr, 0, sizeof(addr));
@@ -81,6 +75,11 @@ int service(int module, int con_num)
 
     if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket create");
+        return -1;
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) {
+        perror("setsockopt");
         return -1;
     }
 
