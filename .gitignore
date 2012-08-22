@@ -2,3 +2,8 @@
 *~
 simple_client.c
 simple_client.h
+log*
+dump*
+server
+client
+conn_server
