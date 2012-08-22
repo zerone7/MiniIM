@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "modules.h"
+#include "packet_dump.h"
 #include "conn_log.h"
 #include "conn_server.h"
 #include "conn_packet.h"
@@ -8,6 +9,7 @@
 #include "conn_network.h"
 
 FILE *log_fp = NULL;
+FILE *dump_fp = NULL;
 
 int conn_server_init(struct conn_server *server)
 {
@@ -44,6 +46,7 @@ int main(int argc, char *argv[])
 	struct conn_server server;
 
 	LOG_INIT("log_conn");
+	DUMP_INIT("dump_conn");
 	conn_server_init(&server);
 
 	/* connect to user server */
@@ -109,6 +112,7 @@ int main(int argc, char *argv[])
 	log_notice("starting epoll loop\n");
 	epoll_loop(&server);
 
+	DUMP_DESTROY();
 	LOG_DESTROY();
 	return 0;
 }

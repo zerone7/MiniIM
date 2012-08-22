@@ -9,6 +9,7 @@
 #include <sys/epoll.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include "packet_dump.h"
 #include "conn_define.h"
 #include "conn_log.h"
 #include "conn_timer.h"
@@ -149,11 +150,12 @@ static int last_packet_incomplete(struct conn_server *server,
 		char str[16];
 		memset(str, 0, sizeof(str));
 		get_conn_str(server, conn->sfd, str);
-		log_debug("recv packet len %hu, cmd %#hx, uin %u from %s\n",
+		log_debug("recv packet len %hu, cmd 0x%04hx, uin %u from %s\n",
 				get_length_host(packet),
 				get_command_host(packet),
 				get_uin_host(packet),
 				str);
+		dump_packet(packet, RECV_PACKET, str);
 	}
 
 	return read_bytes;
@@ -232,11 +234,12 @@ static int last_packet_complete(struct conn_server *server,
 			char str[16];
 			memset(str, 0, sizeof(str));
 			get_conn_str(server, conn->sfd, str);
-			log_debug("recv packet len %hu, cmd %#hx, uin %u from %s\n",
+			log_debug("recv packet len %hu, cmd 0x%04hx, uin %u from %s\n",
 					get_length_host(packet),
 					get_command_host(packet),
 					get_uin_host(packet),
 					str);
+			dump_packet(packet, RECV_PACKET, str);
 		}
 
 		list_add_tail(&packet->list, &conn->recv_packet_list);
@@ -414,11 +417,12 @@ static int write_handler(struct conn_server *server, int infd)
 			char str[16];
 			memset(str, 0, sizeof(str));
 			get_conn_str(server, conn->sfd, str);
-			log_debug("send packet len %hu, cmd %#hx, uin %u to %s\n",
+			log_debug("send packet len %hu, cmd 0x%04hx, uin %u to %s\n",
 					get_length_host(packet),
 					get_command_host(packet),
 					get_uin_host(packet),
 					str);
+			dump_packet(packet, SEND_PACKET, str);
 			allocator_free(&server->packet_allocator, packet);
 		}
 	}
