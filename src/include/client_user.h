@@ -25,7 +25,7 @@
 
 #define PROTOCOL_VERSION	0x0001
 #define MAX_PASSWORD_LENGTH	16
-#define MAX_NICK_LENGTH		32
+#define MAX_NICK_LENGTH		31
 #define MAX_MESSAGE_LENGTH	4096
 
 #define char_ptr(ptr)		((char *)(ptr))
