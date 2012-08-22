@@ -8,14 +8,16 @@
 #include "log.h"
 #include "network.h"
 #include "list_packet.h"
+#include "packet_dump.h"
 #include "uthash.h"
 #include "client_user.h"
 
 #define MAX_PASS_LEN		20
-#define CONN_SERVER_IP		"127.0.0.1"
-#define CONN_SERVER_PORT	27182
+#define CONN_SERVER_IP		"10.18.124.77"
+#define CONN_SERVER_PORT	34567
 
 FILE *log_fp = NULL;
+FILE *dump_fp = NULL;
 
 static void get_nick(struct contact *contact_map, uint32_t uin, char *str)
 {
@@ -472,6 +474,7 @@ char* getpass(const char *prompt)
 int main(int argc, char *argv[])
 {
 	LOG_INIT("log_client");
+	DUMP_INIT("dump_client");
 
 	printf("Please enter you uin: ");
 	uint32_t uin;
@@ -500,6 +503,7 @@ int main(int argc, char *argv[])
 	user.mode = COMMAND_MODE;
 	select_loop(&user);
 
+	DUMP_DESTROY();
 	LOG_DESTROY();
 	return 0;
 }

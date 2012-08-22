@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "protocol.h"
 #include "list_packet.h"
+#include "packet_dump.h"
 #include "network.h"
 #include "client_user.h"
 
@@ -54,6 +55,7 @@ static int last_packet_incomplete(struct packet_reader *reader,
 				get_length_host(packet),
 				get_command_host(packet),
 				get_uin_host(packet));
+		dump_packet(packet, RECV_PACKET, "server");
 	}
 
 	return read_bytes;
@@ -133,6 +135,7 @@ static int last_packet_complete(struct packet_reader *reader,
 					get_length_host(packet),
 					get_command_host(packet),
 					get_uin_host(packet));
+			dump_packet(packet, RECV_PACKET, "server");
 		}
 	}
 
@@ -199,6 +202,7 @@ static inline void send_packet_debug(struct list_packet *lp)
 			get_length_host(lp),
 			get_command_host(lp),
 			get_uin_host(lp));
+	dump_packet(lp, SEND_PACKET, "server");
 }
 
 /* send keep alive packet to server */
