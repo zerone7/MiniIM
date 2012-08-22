@@ -195,7 +195,7 @@ static struct list_packet* create_packet(uint32_t uin,
 /* debug information when sending packet */
 static inline void send_packet_debug(struct list_packet *lp)
 {
-	log_debug("send packet len %hu, cmd %hx, uin %u,  to server\n",
+	log_debug("send packet len %hu, cmd %#hx, uin %u,  to server\n",
 			get_length_host(lp),
 			get_command_host(lp),
 			get_uin_host(lp));
@@ -427,6 +427,7 @@ static int read_socket(struct client_user *user, char *buf, int count, int timeo
 	FD_ZERO(&rset);
 	int maxfdp1 = user->socket + 1;
 	FD_SET(user->socket, &rset);
+	timeout = (timeout < 0) ? 0 : timeout;
 	struct timeval time = {timeout, 0};
 
 	select(maxfdp1, &rset, NULL, NULL, &time);
@@ -627,15 +628,17 @@ static void read_contact_info_multi(struct client_user *user,
 		uint32_t uin = get_field_htonl(p, 0);
 		struct contact *c;
 		HASH_FIND_INT(user->contact_map, &uin, c);
-		if (!c) {
+		if (c) {
+			HASH_DEL(user->contact_map, c);
+		} else {
 			c = malloc(sizeof(struct contact));
-			c->uin = uin;
-			HASH_ADD_INT(user->contact_map, uin, c);
 		}
+		c->uin = uin;
 		c->is_online = get_field_htons(p, 4);
 		int length = get_field_htons(p, 6);
 		memcpy(&c->nick, p + 8, length);
 		c->nick[length - 1] = '\0';
+		HASH_ADD_INT(user->contact_map, uin, c);
 		p += length + 8;
 	}
 }
@@ -810,7 +813,7 @@ int read_online_message(struct client_user *user)
 	/* read message from socket */
 	char buf[8192];
 	memset(buf, 0, sizeof(buf));
-	int count = read_socket(user, buf, sizeof(buf), 1);
+	int count = read_socket(user, buf, sizeof(buf), 0);
 	read_packet(&user->reader, buf, count);
 
 	head = get_recv_list(user);

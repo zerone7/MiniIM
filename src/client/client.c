@@ -58,7 +58,7 @@ static int ui_set_nick(struct client_user *user, char *buf, int count)
 
 static int contact_compare(struct contact *lhs, struct contact *rhs)
 {
-	return lhs->is_online - rhs->is_online;
+	return rhs->is_online - lhs->is_online;
 }
 
 static void ui_print_contacts(struct contact *contact_map)
@@ -198,9 +198,23 @@ static int command_input(struct client_user *user, char *buf, int count)
 	}
 }
 
-static int ui_quit_chat_mode()
+static int ui_show_usage_command(struct client_user *user)
+{
+	if (HASH_COUNT(user->msg_map)) {
+		return 0;
+	}
+
+	printf("please enter the following command: \n");
+	printf("  list  \t-list you friends\n");
+	printf("  nick  \t-change your nick name\n");
+	printf("  chat [uin]\t-chat to your friend\n");
+	return 0;
+}
+
+static int ui_quit_chat_mode(struct client_user *user)
 {
 	printf("quit chat mode\n");
+	ui_show_usage_command(user);
 	return 0;
 }
 
@@ -218,7 +232,7 @@ static int chat_input(struct client_user *user, char *buf, int count)
 	if (!strncmp(buf, "\\q", 2)) {
 		/* quit chat mode */
 		user->mode = COMMAND_MODE;
-		ui_quit_chat_mode();
+		ui_quit_chat_mode(user);
 	} else {
 		/* send chat message */
 		buf[strlen(buf) - 1] = '\0';
@@ -306,6 +320,10 @@ static int ui_show_chat_message(struct client_user *user)
 
 static int ui_show_msg_list(struct client_user *user)
 {
+	if (!HASH_COUNT(user->msg_map)) {
+		return 0;
+	}
+
 	printf("you have %d messages\n", HASH_COUNT(user->msg_map));
 	printf("num\tuin(nick)\tcount\n");
 	struct message_map *current, *tmp;
@@ -323,6 +341,16 @@ static int ui_show_msg_list(struct client_user *user)
 		printf("%d\t%u(%s)\t%d\n", i, current->uin, nick, j);
 	}
 	printf("input number to read the message\n");
+	return 0;
+}
+
+static int ui_show_msg_list_notice(struct client_user *user)
+{
+	static int msg_count = 0;
+	if (HASH_COUNT(user->msg_map) != msg_count) {
+		ui_show_msg_list(user);
+		msg_count = HASH_COUNT(user->msg_map);
+	}
 	return 0;
 }
 
@@ -353,7 +381,8 @@ static int ui_login(struct client_user *user,
 			return -1;
 		}
 
-		return ui_show_offline_msg_list(user);
+		ui_show_offline_msg_list(user);
+		return ui_show_usage_command(user);
 	}
 }
 
@@ -363,7 +392,7 @@ void select_loop(struct client_user *user)
 	while (1) {
 		FD_SET(fileno(stdin), &user->rset);
 		int maxfdp1 = fileno(stdin) + 1;
-		struct timeval timeout = {5, 0};
+		struct timeval timeout = {1, 0};
 		select(maxfdp1, &user->rset, NULL, NULL, &timeout);
 
 		if (FD_ISSET(fileno(stdin), &user->rset)) {
@@ -387,7 +416,12 @@ void select_loop(struct client_user *user)
 		}
 
 		/* TODO: read online message */
-		ui_show_chat_message(user);
+		read_online_message(user);
+		if (user->mode == COMMAND_MODE) {
+			ui_show_msg_list_notice(user);
+		} else if (user->mode == CHAT_MODE) {
+			ui_show_chat_message(user);
+		}
 	}
 }
 
