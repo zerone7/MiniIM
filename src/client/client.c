@@ -189,13 +189,39 @@ static int ui_show_message(struct client_user *user, char *buf, int count)
 {
 	int i;
 	sscanf(buf, "%d", &i);
-	if (i > HASH_COUNT(user->msg_map)) {
+	if (i <= 0 || i > HASH_COUNT(user->msg_map)) {
 		printf("unknown command\n");
 	} else {
 		ui_print_message(user, i);
 	}
 
 	return 0;
+}
+
+static int ui_show_usage_command(struct client_user *user)
+{
+	printf("please enter the following command: \n");
+	printf("  list  \t-list you friends\n");
+	printf("  nick  \t-change your nick name\n");
+	printf("  chat [uin]\t-chat to your friend\n");
+	printf("  add [uin]\t-add friend\n");
+	printf("  help  \t-show this help message\n");
+	printf("  quit  \t-quit the program\n");
+	return 0;
+}
+
+static int ui_show_usage_no_msg(struct client_user *user)
+{
+	if (!HASH_COUNT(user->msg_map)) {
+		return ui_show_usage_command(user);
+	}
+	return 0;
+}
+
+static int ui_quit_program(struct client_user *user)
+{
+	/* TODO: need to release the resource */
+	exit(0);
 }
 
 static int command_input(struct client_user *user, char *buf, int count)
@@ -212,29 +238,19 @@ static int command_input(struct client_user *user, char *buf, int count)
 	} else if (!strncmp(buf, "chat", 4)) {
 		/* enter chat mode */
 		return ui_chat(user, buf, count);
+	} else if (!strncmp(buf, "help", 4)) {
+		return ui_show_usage_command(user);
+	} else if (!strncmp(buf, "quit", 4)) {
+		return ui_quit_program(user);
 	} else {
 		return ui_show_message(user, buf, count);
 	}
 }
 
-static int ui_show_usage_command(struct client_user *user)
-{
-	if (HASH_COUNT(user->msg_map)) {
-		return 0;
-	}
-
-	printf("please enter the following command: \n");
-	printf("  list  \t-list you friends\n");
-	printf("  nick  \t-change your nick name\n");
-	printf("  chat [uin]\t-chat to your friend\n");
-	printf("  add [uin]\t-add friend\n");
-	return 0;
-}
-
 static int ui_quit_chat_mode(struct client_user *user)
 {
 	printf("quit chat mode\n");
-	ui_show_usage_command(user);
+	ui_show_usage_no_msg(user);
 	return 0;
 }
 
@@ -290,7 +306,7 @@ static int auth_input(struct client_user *user, char *buf, int count)
 
 		user->mode = COMMAND_MODE;
 		ui_add_contact_reply(user, user->chat_uin, reply_type);
-		ui_show_usage_command(user);
+		ui_show_usage_no_msg(user);
 	} else {
 		printf("you should input yes or no\n");
 	}
