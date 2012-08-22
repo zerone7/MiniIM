@@ -65,17 +65,22 @@ static int contact_compare(struct contact *lhs, struct contact *rhs)
 
 static void ui_print_contacts(struct contact *contact_map)
 {
+	if (!HASH_COUNT(contact_map)) {
+		return;
+	}
+
+	printf("status\tuin\tnick name\n");
 	HASH_SORT(contact_map, contact_compare);
 
 	struct contact *current, *tmp;
 	HASH_ITER(hh, contact_map, current, tmp) {
 		char buf[16];
 		if (current->is_online) {
-			strcpy(buf, "online");
+			strcpy(buf, "  +");
 		} else {
-			strcpy(buf, "offline");
+			strcpy(buf, "  -");
 		}
-		printf("%d\t%s\t\t%s\n", current->uin, current->nick, buf);
+		printf("%s\t%u\t%s\n", buf, current->uin, current->nick);
 	}
 }
 
