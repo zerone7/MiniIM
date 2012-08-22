@@ -4,6 +4,6 @@ simple_client.c
 simple_client.h
 log*
 dump*
-server
+src/server/server
 client
 conn_server
