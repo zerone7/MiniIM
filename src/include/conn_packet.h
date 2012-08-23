@@ -3,8 +3,8 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include "list.h"
 #include "list_packet.h"
-#include "conn_list.h"
 #include "conn_connection.h"
 
 #define STATUS_CHANGE_OFFLINE	0x00

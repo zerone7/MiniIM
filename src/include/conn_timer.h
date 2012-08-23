@@ -4,8 +4,8 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "list.h"
 #include "conn_define.h"
-#include "conn_list.h"
 #include "conn_connection.h"
 
 /* timer structure used for client timeout */

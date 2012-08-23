@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <sys/epoll.h>
-#include "conn_list.h"
+#include "list.h"
 #include "conn_hash.h"
 #include "conn_timer.h"
 #include "conn_allocator.h"

@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "conn_list.h"
+#include "list.h"
 
 #define NOT_LOGIN_CONNECTION		1
 #define LOGIN_OK_CONNECTION		2
