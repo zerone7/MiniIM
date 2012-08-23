@@ -107,6 +107,18 @@ static inline void set_command(struct list_packet *lp, uint16_t command)
 	lp->packet.cmd = command;
 }
 
+/* get uin of the packet */
+static inline uint32_t get_uin(struct list_packet *lp)
+{
+	return lp->packet.uin;
+}
+
+/* set uin of the packet */
+static inline void set_uin(struct list_packet *lp, uint32_t uin)
+{
+	lp->packet.uin = uin;
+}
+
 /* get pointer of parameters of the packet */
 static inline char* get_parameters(struct list_packet *lp)
 {
@@ -117,8 +129,8 @@ static inline char* get_parameters(struct list_packet *lp)
 #define __CL_PASSWORD_OFFSET		2
 
 /* set password field in CMD_LOGIN packet */
-static inline void clin_set_password(struct list_packet *lp,
-		char *pass, uint16_t length)
+static inline void cl_set_password(struct list_packet *lp,
+		const char *pass, uint16_t length)
 {
 	set_field_uint16_t(get_parameters(lp), __CL_PASS_LENGTH_OFFSET,
 			length);
@@ -131,7 +143,7 @@ static inline void clin_set_password(struct list_packet *lp,
 
 /* set nick field in CMD_SET_NICK packet */
 static inline void csn_set_nick(struct list_packet *lp,
-		char *nick, uint16_t length)
+		const char *nick, uint16_t length)
 {
 	set_field_uint16_t(get_parameters(lp), __CSN_NICK_LENGTH_OFFSET,
 			length + 1);
@@ -193,7 +205,7 @@ static inline void cm_set_to_uin(struct list_packet *lp, uint32_t to_uin)
 
 /* set message field in CMD_MESSAGE packet */
 static inline void cm_set_message(struct list_packet *lp,
-		char *message, uint16_t length)
+		const char *message, uint16_t length)
 {
 	set_field_uint16_t(get_parameters(lp), __CM_MSG_LENGTH_OFFSET,
 			length + 1);
@@ -386,6 +398,59 @@ static inline uint16_t sm_get_msg_length(struct list_packet *lp)
 static inline char* sm_get_message(struct list_packet *lp)
 {
 	return get_field_ptr(get_parameters(lp), __SM_MESSAGE_OFFSET);
+}
+
+#define __SOM_MSG_COUNT_OFFSET	0
+#define __SOM_START_OFFSET	2
+#define __SOM_FROM_UIN_OFFSET	0
+#define __SOM_TYPE_OFFSET	8
+#define __SOM_MSG_LEGNTH_OFFSET	10
+#define __SOM_MESSAGE_OFFSET	12
+
+/* get MSG_COUNT field in SRV_OFFLINE_MSG packet */
+static inline uint16_t som_get_msg_count(struct list_packet *lp)
+{
+	return get_field_uint16_t(get_parameters(lp),
+			__SOM_MSG_COUNT_OFFSET);
+}
+
+/* get first message in SRV_OFFLINE_MSG packet */
+static inline char* som_get_first_ptr(struct list_packet *lp)
+{
+	return get_field_ptr(get_parameters(lp),
+			__SOM_START_OFFSET);
+}
+
+/* get FROM_UIN field in SRV_OFFLINE_MSG packet */
+static inline uint32_t som_get_from_uin(char *current)
+{
+	return get_field_uint32_t(current, __SOM_FROM_UIN_OFFSET);
+}
+
+/* get TYPE field in SRV_OFFLINE_MSG packet */
+static inline uint16_t som_get_type(char *current)
+{
+	return get_field_uint16_t(current, __SOM_TYPE_OFFSET);
+}
+
+/* get LENGTH field in SRV_OFFLINE_MSG packet */
+static inline uint16_t som_get_msg_length(char *current)
+{
+	return get_field_uint16_t(current, __SOM_MSG_LEGNTH_OFFSET);
+}
+
+/* get MESSAGE field in SRV_OFFLINE_MSG packet */
+static inline char* som_get_message(char *current)
+{
+	return get_field_ptr(current, __SOM_MESSAGE_OFFSET);
+}
+
+/* get next message in SRV_OFFLINE_MSG packet */
+static inline char* som_get_next_ptr(char *current)
+{
+	int msg_length = som_get_msg_length(current);
+	return get_field_ptr(current,
+			__SOM_MESSAGE_OFFSET + msg_length);
 }
 
 #endif

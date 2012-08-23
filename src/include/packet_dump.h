@@ -53,15 +53,13 @@ static inline void dump_packet(struct list_packet *lp, int type, char *str)
 	strftime(buffer, sizeof(buffer), "[%Y-%m-%d %X]", timeinfo);
 	fprintf(dump_fp, "%s\n", buffer);
 
-	int length = get_length_host(lp);
+	int length = get_length(lp);
 	if (type == SEND_PACKET) {
 		fprintf(dump_fp, "send packet len %hu, cmd 0x%04hx, uin %u to %s:\n",
-				length, get_command_host(lp),
-				get_uin_host(lp), str);
+				length, get_command(lp), get_uin(lp), str);
 	} else {
 		fprintf(dump_fp, "recv packet len %hu, cmd 0x%04hx, uin %u from %s:\n",
-				length, get_command_host(lp),
-				get_uin_host(lp), str);
+				length, get_command(lp), get_uin(lp), str);
 	}
 
 	fprintf(dump_fp, "header :");

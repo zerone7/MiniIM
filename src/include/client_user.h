@@ -16,35 +16,10 @@
 #define CHAT_MODE		3
 #define AUTH_MODE		4
 
-#define LENGTH_OFFSET		0
-#define VERSION_OFFSET		2
-#define COMMAND_OFFSET		4
-#define PAD_OFFSET		6
-#define UIN_OFFSET		8
-#define PARAMETERS_OFFSET	12
-
 #define PROTOCOL_VERSION	0x0001
 #define MAX_PASSWORD_LENGTH	16
 #define MAX_NICK_LENGTH		31
-#define MAX_MESSAGE_LENGTH	4096
-
-#define char_ptr(ptr)		((char *)(ptr))
-
-/* TODO: need to change to network byte order */
-#define get_field_htons(ptr, offset)	\
-	(*((uint16_t *)((char_ptr(ptr) + (offset)))))
-
-/* TODO: need to change to network byte order */
-#define get_field_htonl(ptr, offset)	\
-	(*((uint32_t *)((char_ptr(ptr) + (offset)))))
-
-/* TODO: need to change to network byte order */
-#define set_field_htons(ptr, offset, value)	\
-	*((uint16_t *)(char_ptr(ptr) + (offset))) = ((value))
-
-/* TODO: need to change to network byte order */
-#define set_field_htonl(ptr, offset, value)	\
-	*((uint32_t *)(char_ptr(ptr) + (offset))) = ((value))
+#define MAX_MESSAGE_LENGTH	4095
 
 struct contact {
 	uint32_t uin;

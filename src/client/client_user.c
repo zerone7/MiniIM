@@ -22,7 +22,7 @@ static int last_packet_incomplete(struct packet_reader *reader,
 	}
 
 	struct list_packet *packet = reader->lp;
-	int packet_length = get_length_host(packet);
+	int packet_length = get_length(packet);
 	if (packet_length < PACKET_HEADER_LEN) {
 		log_warning("packet length field %d is too small\n",
 				packet_length);
@@ -51,10 +51,9 @@ static int last_packet_incomplete(struct packet_reader *reader,
 		list_add_tail(&(reader->lp->list), &reader->recv_packet_list);
 		reader->expect_bytes = 0;
 		reader->lp = NULL;
-		log_debug("recv packet len %hu, cmd %#hx, uin %u from server\n",
-				get_length_host(packet),
-				get_command_host(packet),
-				get_uin_host(packet));
+		log_debug("recv packet len %hu, cmd 0x%04hx, uin %u from server\n",
+				get_length(packet), get_command(packet),
+				get_uin(packet));
 		dump_packet(packet, RECV_PACKET, "server");
 	}
 
@@ -72,9 +71,7 @@ static int last_packet_incomplete_1byte(struct packet_reader *reader,
 	int read_bytes = 1;
 	memcpy(reader->length + 1, buf, read_bytes);
 
-	/* TODO: need to change to network byte order */
-	int packet_length = (*((uint16_t *)reader->length));
-	//int packet_length = ntohs(*((uint16_t *)conn->length));
+	int packet_length = get_field_uint16_t(reader->length, 0);
 	if (packet_length < PACKET_HEADER_LEN) {
 		log_warning("packet length field %d is too small\n",
 				packet_length);
@@ -109,9 +106,7 @@ static int last_packet_complete(struct packet_reader *reader,
 		reader->length_incomplete = true;
 		memcpy(reader->length, buf, read_bytes);
 	} else {
-		/* TODO: need to change to network byte order */
-		int packet_length = (*((uint16_t *)buf));
-		//int packet_length = ntohs(*((uint16_t *)buf));
+		int packet_length = get_field_uint16_t(buf, 0);
 		if (packet_length < PACKET_HEADER_LEN) {
 			log_warning("packet length field %d is too small\n",
 					packet_length);
@@ -131,10 +126,10 @@ static int last_packet_complete(struct packet_reader *reader,
 			reader->lp = packet;
 		} else {
 			list_add_tail(&packet->list, &reader->recv_packet_list);
-			log_debug("recv packet len %hu, cmd %#hx, uin %u from server\n",
-					get_length_host(packet),
-					get_command_host(packet),
-					get_uin_host(packet));
+			log_debug("recv packet len %hu, cmd 0x%04hx, uin %u from server\n",
+					get_length(packet),
+					get_command(packet),
+					get_uin(packet));
 			dump_packet(packet, RECV_PACKET, "server");
 		}
 	}
@@ -184,24 +179,22 @@ void client_user_init(struct client_user *user)
 static struct list_packet* create_packet(uint32_t uin,
 		uint16_t length, uint16_t command)
 {
-	int lp_length = sizeof(struct list_head) + length;
+	int lp_length = sizeof(struct list_packet) +
+		length - PACKET_HEADER_LEN;
 	struct list_packet *lp = malloc(lp_length);
-	struct packet *packet = &lp->packet;
-	memset(lp, 0, lp_length);
-	set_field_htons(packet, LENGTH_OFFSET, length);
-	set_field_htons(packet, VERSION_OFFSET, PROTOCOL_VERSION);
-	set_field_htons(packet, COMMAND_OFFSET, command);
-	set_field_htonl(packet, UIN_OFFSET, uin);
+	INIT_LIST_HEAD(&lp->list);
+	set_length(lp, length);
+	set_version(lp, PROTOCOL_VERSION);
+	set_command(lp, command);
+	set_uin(lp, uin);
 	return lp;
 }
 
 /* debug information when sending packet */
 static inline void send_packet_debug(struct list_packet *lp)
 {
-	log_debug("send packet len %hu, cmd %#hx, uin %u,  to server\n",
-			get_length_host(lp),
-			get_command_host(lp),
-			get_uin_host(lp));
+	log_debug("send packet len %hu, cmd 0x%04hx, uin %u,  to server\n",
+			get_length(lp), get_command(lp), get_uin(lp));
 	dump_packet(lp, SEND_PACKET, "server");
 }
 
@@ -229,10 +222,7 @@ int cmd_login(struct client_user *user,
 
 	uint16_t length = PACKET_HEADER_LEN + 2 + pass_len;
 	struct list_packet *lp = create_packet(uin, length, CMD_LOGIN);
-	struct packet *packet = &lp->packet;
-
-	set_field_htons(packet, PARAMETERS_OFFSET, pass_len);
-	set_field_ptr(packet, PARAMETERS_OFFSET + 2, password, pass_len);
+	cl_set_password(lp, password, pass_len);
 
 	user->uin = uin;
 	user->mode = LOGIN_MODE;
@@ -264,14 +254,11 @@ int cmd_logout(struct client_user *user)
 int cmd_set_nick(struct client_user *user, const char *nick)
 {
 	uint16_t nick_len = strlen(nick);
-	assert(nick_len++ <= MAX_NICK_LENGTH);
+	assert(nick_len <= MAX_NICK_LENGTH);
 
-	uint16_t length = PACKET_HEADER_LEN + 2 + nick_len;
+	uint16_t length = PACKET_HEADER_LEN + 2 + nick_len + 1;
 	struct list_packet *lp = create_packet(user->uin, length, CMD_SET_NICK);
-	struct packet *packet = &lp->packet;
-
-	set_field_htons(packet, PARAMETERS_OFFSET, nick_len);
-	set_field_ptr(packet, PARAMETERS_OFFSET + 2, nick, nick_len);
+	csn_set_nick(lp, nick, nick_len);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send set nick packet failed\n");
@@ -288,9 +275,7 @@ int cmd_add_contact(struct client_user *user, uint32_t to_uin)
 	uint16_t length = PACKET_HEADER_LEN + 4;
 	struct list_packet *lp =
 		create_packet(user->uin, length, CMD_ADD_CONTACT);
-	struct packet *packet = &lp->packet;
-
-	set_field_htonl(packet, PARAMETERS_OFFSET, to_uin);
+	cac_set_uin(lp, to_uin);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send add contact packet failed\n");
@@ -308,10 +293,8 @@ int cmd_add_contact_reply(struct client_user *user,
 	uint16_t length = PACKET_HEADER_LEN + 4 + 2;
 	struct list_packet *lp =
 		create_packet(user->uin, length, CMD_ADD_CONTACT_REPLY);
-	struct packet *packet = &lp->packet;
-
-	set_field_htonl(packet, PARAMETERS_OFFSET, to_uin);
-	set_field_htons(packet, PARAMETERS_OFFSET + 4, reply_type);
+	cacr_set_to_uin(lp, to_uin);
+	cacr_set_reply_type(lp, reply_type);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send add contact reply packet failed\n");
@@ -346,10 +329,7 @@ int cmd_contact_info_multi(struct client_user *user,
 	uint16_t length = PACKET_HEADER_LEN + 2 + count * 4;
 	struct list_packet *lp =
 		create_packet(user->uin, length, CMD_CONTACT_INFO_MULTI);
-	struct packet *packet = &lp->packet;
-
-	set_field_htons(packet, PARAMETERS_OFFSET, count);
-	set_field_ptr(packet, PARAMETERS_OFFSET + 2, uins, count * 4);
+	ccim_set_uins(lp, uins, count);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send contact info multi packet failed\n");
@@ -365,15 +345,12 @@ int cmd_message(struct client_user *user,
 		uint32_t to_uin, const char *message)
 {
 	uint16_t msg_len = strlen(message);
-	assert(msg_len++ <= MAX_MESSAGE_LENGTH);
+	assert(msg_len <= MAX_MESSAGE_LENGTH);
 
-	uint16_t length = PACKET_HEADER_LEN + 10 + msg_len;
+	uint16_t length = PACKET_HEADER_LEN + 10 + msg_len + 1;
 	struct list_packet *lp = create_packet(user->uin, length, CMD_MESSAGE);
-	struct packet *packet = &lp->packet;
-
-	set_field_htonl(packet, PARAMETERS_OFFSET, to_uin);
-	set_field_htons(packet, PARAMETERS_OFFSET + 8, msg_len);
-	set_field_ptr(packet, PARAMETERS_OFFSET + 10, message, msg_len);
+	cm_set_to_uin(lp, to_uin);
+	cm_set_message(lp, message, msg_len);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send message packet failed\n");
@@ -458,9 +435,8 @@ static int wait_for_reply(struct client_user *user, uint16_t send_cmd)
 	struct list_head *head = get_recv_list(user);
 	struct list_packet *current, *tmp;
 	list_for_each_entry_safe(current, tmp, head, list) {
-		uint16_t command = get_command_host(current);
-		uint16_t client_cmd =
-			get_field_htons(&current->packet, PARAMETERS_OFFSET);
+		uint16_t command = get_command(current);
+		uint16_t client_cmd = se_get_client_cmd(current);
 		list_del(&current->list);
 
 		if (command == wait_cmd) {
@@ -500,11 +476,11 @@ int login(struct client_user *user, uint32_t uin,
 	struct list_packet *lp = list_first_entry(get_wait_list(user),
 			struct list_packet, list);
 	list_del(&lp->list);
-	if (get_command_host(lp) == get_wait_cmd(send_cmd)) {
+	if (get_command(lp) == get_wait_cmd(send_cmd)) {
 		/* copy nick name to nick str */
-		int length = get_field_htons(&lp->packet, PARAMETERS_OFFSET);
-
-		memcpy(nick, char_ptr(&lp->packet) + PARAMETERS_OFFSET + 2, length);
+		int length = slo_get_nick_length(lp);
+		memcpy(nick, slo_get_nick(lp), length);
+		nick[length - 1] = '\0';
 		ret = 0;
 	} else {
 		log_warning("receive SRV_ERROR packet from server\n");
@@ -540,7 +516,10 @@ int set_nick(struct client_user *user, const char *nick,
 	struct list_packet *lp = list_first_entry(get_wait_list(user),
 			struct list_packet, list);
 	list_del(&lp->list);
-	if (get_command_host(lp) == get_wait_cmd(send_cmd)) {
+	if (get_command(lp) == get_wait_cmd(send_cmd)) {
+		int nick_len = ssno_get_nick_length(lp);
+		memcpy(new_nick, ssno_get_nick(lp), nick_len);
+		new_nick[nick_len - 1] = '\0';
 		ret = 0;
 	} else {
 		log_warning("receive SRV_ERROR packet from server\n");
@@ -569,7 +548,7 @@ int add_contact(struct client_user *user, uint32_t to_uin)
 	struct list_packet *lp = list_first_entry(get_wait_list(user),
 			struct list_packet, list);
 	list_del(&lp->list);
-	if (get_command_host(lp) == get_wait_cmd(send_cmd)) {
+	if (get_command(lp) == get_wait_cmd(send_cmd)) {
 		ret = 0;
 	} else {
 		log_warning("receive SRV_ERROR packet from server\n");
@@ -605,11 +584,10 @@ int contact_list(struct client_user *user, uint32_t **uins)
 	struct list_packet *lp = list_first_entry(get_wait_list(user),
 			struct list_packet, list);
 	list_del(&lp->list);
-	if (get_command_host(lp) == get_wait_cmd(send_cmd)) {
-		user->contact_count =
-			get_field_htons(&lp->packet, PARAMETERS_OFFSET);
+	if (get_command(lp) == get_wait_cmd(send_cmd)) {
+		user->contact_count = scl_get_contact_count(lp);
 		*uins = malloc(sizeof(uint32_t) * user->contact_count);
-		memcpy(*uins, ((char *)&lp->packet) + PARAMETERS_OFFSET + 2,
+		memcpy(*uins, scl_get_contact_uins(lp),
 				sizeof(uint32_t) * user->contact_count);
 		ret = 0;
 	} else {
@@ -625,11 +603,11 @@ int contact_list(struct client_user *user, uint32_t **uins)
 static void read_contact_info_multi(struct client_user *user,
 		struct list_packet *lp)
 {
-	uint16_t count = get_field_htons(&lp->packet, PARAMETERS_OFFSET);
+	uint16_t count = scim_get_contact_count(lp);
+	char *ptr = scim_get_first_ptr(lp);
 	int i;
-	char *p = ((char *)&lp->packet) + PARAMETERS_OFFSET + 2;
-	for (i = 0; i < count; i++) {
-		uint32_t uin = get_field_htonl(p, 0);
+	for (i = 0; i < count; i++, ptr = scim_get_next_ptr(ptr)) {
+		uint32_t uin = scim_get_uin(ptr);
 		struct contact *c;
 		HASH_FIND_INT(user->contact_map, &uin, c);
 		if (c) {
@@ -638,12 +616,11 @@ static void read_contact_info_multi(struct client_user *user,
 			c = malloc(sizeof(struct contact));
 		}
 		c->uin = uin;
-		c->is_online = get_field_htons(p, 4);
-		int length = get_field_htons(p, 6);
-		memcpy(&c->nick, p + 8, length);
-		c->nick[length - 1] = '\0';
+		c->is_online = scim_get_status(ptr);
+		int nick_len = scim_get_nick_length(ptr);
+		memcpy(&c->nick, scim_get_nick(ptr), nick_len);
+		c->nick[nick_len - 1] = '\0';
 		HASH_ADD_INT(user->contact_map, uin, c);
-		p += length + 8;
 	}
 }
 
@@ -666,7 +643,7 @@ int contact_info_multi(struct client_user *user,
 	struct list_packet *lp = list_first_entry(get_wait_list(user),
 			struct list_packet, list);
 	list_del(&lp->list);
-	if (get_command_host(lp) == get_wait_cmd(send_cmd)) {
+	if (get_command(lp) == get_wait_cmd(send_cmd)) {
 		read_contact_info_multi(user, lp);
 		ret = 0;
 	} else {
@@ -724,7 +701,7 @@ int send_message(struct client_user *user,
 static void read_message_from_buffer(struct client_user *user, char *p)
 {
 	struct message_map *msg_map;
-	uint32_t uin = get_field_htonl(p, 0);
+	uint32_t uin = som_get_from_uin(p);
 	HASH_FIND_INT(user->msg_map, &uin, msg_map);
 	if (!msg_map) {
 		msg_map = malloc(sizeof(struct message_map));
@@ -735,27 +712,26 @@ static void read_message_from_buffer(struct client_user *user, char *p)
 
 	struct message *msg = malloc(sizeof(struct message));
 	msg->uin = uin;
-	msg->type = get_field_htons(p, 8);
+	msg->type = som_get_type(p);
 	msg->msg = NULL;
-	int length = get_field_htons(p, 10);
-	if (length > 0) {
-		msg->msg = malloc(length);
-		memcpy(msg->msg, p + 12, length);
-		msg->msg[length - 1] = '\0';
+	int msg_len = som_get_msg_length(p);
+	if (msg_len > 0) {
+		msg->msg = malloc(msg_len);
+		memcpy(msg->msg, som_get_message(p), msg_len);
+		msg->msg[msg_len - 1] = '\0';
 	}
+
 	list_add_tail(&msg->list, &msg_map->head);
 }
 
 /* read offline message from packet */
 static void read_offline_msg(struct client_user *user, struct list_packet *lp)
 {
-	int count = get_field_htons(&lp->packet, PARAMETERS_OFFSET);
+	int count = som_get_msg_count(lp);
+	char *ptr = som_get_first_ptr(lp);
 	int i;
-	char *p = ((char *)&lp->packet) + PARAMETERS_OFFSET + 2;
-	for (i = 0; i < count; i++) {
-		int length = get_field_htons(p, 10);
-		read_message_from_buffer(user, p);
-		p += length + 12;
+	for (i = 0; i < count; i++, ptr = som_get_next_ptr(ptr)) {
+		read_message_from_buffer(user, ptr);
 	}
 }
 
@@ -776,7 +752,7 @@ int get_offline_msg(struct client_user *user)
 	int ret = -1;
 	struct list_packet *current = NULL;
 	list_for_each_entry(current, get_wait_list(user), list) {
-		if (get_command_host(current) == get_wait_cmd(send_cmd)) {
+		if (get_command(current) == get_wait_cmd(send_cmd)) {
 			ret = 0;
 		}
 	}
@@ -809,9 +785,7 @@ int read_online_message(struct client_user *user)
 	struct list_packet *current, *tmp;
 	list_for_each_entry_safe(current, tmp, head, list) {
 		list_del(&current->list);
-		char *p = ((char *)&current->packet) +
-			PARAMETERS_OFFSET;
-		read_message_from_buffer(user, p);
+		read_message_from_buffer(user, get_parameters(current));
 	}
 
 	/* read message from socket */
@@ -822,12 +796,10 @@ int read_online_message(struct client_user *user)
 
 	head = get_recv_list(user);
 	list_for_each_entry_safe(current, tmp, head, list) {
-		uint16_t command = get_command_host(current);
+		uint16_t command = get_command(current);
 		if (command == SRV_MESSAGE) {
 			list_del(&current->list);
-			char *p = ((char *)&current->packet) +
-				PARAMETERS_OFFSET;
-			read_message_from_buffer(user, p);
+			read_message_from_buffer(user, get_parameters(current));
 		}
 	}
 
