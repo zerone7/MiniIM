@@ -46,9 +46,6 @@
 #define set_field_htonl(ptr, offset, value)	\
 	*((uint32_t *)(char_ptr(ptr) + (offset))) = ((value))
 
-#define set_field(ptr, offset, size, val_ptr)	\
-	memcpy(char_ptr(ptr) + (offset), (val_ptr), (size));
-
 struct contact {
 	uint32_t uin;
 	int is_online;

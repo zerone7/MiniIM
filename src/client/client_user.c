@@ -232,7 +232,7 @@ int cmd_login(struct client_user *user,
 	struct packet *packet = &lp->packet;
 
 	set_field_htons(packet, PARAMETERS_OFFSET, pass_len);
-	set_field(packet, PARAMETERS_OFFSET + 2, pass_len, password);
+	set_field_ptr(packet, PARAMETERS_OFFSET + 2, password, pass_len);
 
 	user->uin = uin;
 	user->mode = LOGIN_MODE;
@@ -271,7 +271,7 @@ int cmd_set_nick(struct client_user *user, const char *nick)
 	struct packet *packet = &lp->packet;
 
 	set_field_htons(packet, PARAMETERS_OFFSET, nick_len);
-	set_field(packet, PARAMETERS_OFFSET + 2, nick_len, nick);
+	set_field_ptr(packet, PARAMETERS_OFFSET + 2, nick, nick_len);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send set nick packet failed\n");
@@ -349,7 +349,7 @@ int cmd_contact_info_multi(struct client_user *user,
 	struct packet *packet = &lp->packet;
 
 	set_field_htons(packet, PARAMETERS_OFFSET, count);
-	set_field(packet, PARAMETERS_OFFSET + 2, count * 4, uins);
+	set_field_ptr(packet, PARAMETERS_OFFSET + 2, uins, count * 4);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send contact info multi packet failed\n");
@@ -373,7 +373,7 @@ int cmd_message(struct client_user *user,
 
 	set_field_htonl(packet, PARAMETERS_OFFSET, to_uin);
 	set_field_htons(packet, PARAMETERS_OFFSET + 8, msg_len);
-	set_field(packet, PARAMETERS_OFFSET + 10, msg_len, message);
+	set_field_ptr(packet, PARAMETERS_OFFSET + 10, message, msg_len);
 
 	if (length != send(user->socket, &lp->packet, length, 0)) {
 		log_err("send message packet failed\n");
