@@ -120,7 +120,7 @@ static int last_packet_incomplete(struct conn_server *server,
 	struct list_head *last = conn->recv_packet_list.prev;
 	struct list_packet *packet =
 		list_entry(last, struct list_packet, list);
-	int packet_length = get_length_host(packet);
+	int packet_length = get_length(packet);
 	if (packet_length < PACKET_HEADER_LEN) {
 		log_warning("packet length field %d is too small\n",
 				packet_length);
@@ -151,10 +151,8 @@ static int last_packet_incomplete(struct conn_server *server,
 		memset(str, 0, sizeof(str));
 		get_conn_str(server, conn->sfd, str);
 		log_debug("recv packet len %hu, cmd 0x%04hx, uin %u from %s\n",
-				get_length_host(packet),
-				get_command_host(packet),
-				get_uin_host(packet),
-				str);
+				get_length(packet), get_command(packet),
+				get_uin(packet), str);
 		dump_packet(packet, RECV_PACKET, str);
 	}
 
@@ -235,10 +233,8 @@ static int last_packet_complete(struct conn_server *server,
 			memset(str, 0, sizeof(str));
 			get_conn_str(server, conn->sfd, str);
 			log_debug("recv packet len %hu, cmd 0x%04hx, uin %u from %s\n",
-					get_length_host(packet),
-					get_command_host(packet),
-					get_uin_host(packet),
-					str);
+					get_length(packet), get_command(packet),
+					get_uin(packet), str);
 			dump_packet(packet, RECV_PACKET, str);
 		}
 
@@ -399,7 +395,7 @@ static int write_handler(struct conn_server *server, int infd)
 		packet = list_first_entry(head, struct list_packet, list);
 		list_del(&packet->list);
 
-		uint16_t length = get_length_host(packet);
+		uint16_t length = get_length(packet);
 		if ((count = write(infd, &packet->packet, length)) < 0) {
 			if (errno != EAGAIN) {
 				log_warning("write data error\n");
@@ -418,10 +414,8 @@ static int write_handler(struct conn_server *server, int infd)
 			memset(str, 0, sizeof(str));
 			get_conn_str(server, conn->sfd, str);
 			log_debug("send packet len %hu, cmd 0x%04hx, uin %u to %s\n",
-					get_length_host(packet),
-					get_command_host(packet),
-					get_uin_host(packet),
-					str);
+					get_length(packet), get_command(packet),
+					get_uin(packet), str);
 			dump_packet(packet, SEND_PACKET, str);
 			allocator_free(&server->packet_allocator, packet);
 		}

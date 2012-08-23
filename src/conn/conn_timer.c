@@ -33,7 +33,7 @@ void timer_expire_time(struct conn_server *server)
 	while (!list_empty(alive_list)) {
 		packet = list_first_entry(alive_list, struct list_packet, list);
 		list_del(&packet->list);
-		uin = get_uin_host(packet);
+		uin = get_uin(packet);
 		/* NOTE: use shared data here, not recommendate */
 		allocator_free(&server->packet_allocator, packet);
 

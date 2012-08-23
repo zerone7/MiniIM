@@ -36,42 +36,6 @@ struct list_packet {
 };
 
 /* get length of the packet */
-static inline uint16_t get_length_host(const struct list_packet *packet)
-{
-	assert(packet);
-	return packet->packet.len;
-	/* TODO: need to change to network byte order */
-	//return ntohs(packet->packet.len);
-}
-
-/* get version of the protocol */
-static inline uint16_t get_version_host(const struct list_packet *packet)
-{
-	assert(packet);
-	return packet->packet.ver;
-	/* TODO: need to change to network byte order */
-	//return ntohs(packet->packet.ver);
-}
-
-/* get command of the packet */
-static inline uint16_t get_command_host(const struct list_packet *packet)
-{
-	assert(packet);
-	return packet->packet.cmd;
-	/* TODO: need to change to network byte order */
-	//return ntohs(packet->packet.cmd);
-}
-
-/* get uin of the packet */
-static inline uint32_t get_uin_host(const struct list_packet *packet)
-{
-	assert(packet);
-	return packet->packet.uin;
-	/* TODO: need to change to network byte order */
-	//return ntohl(packet->packet.uin);
-}
-
-/* get length of the packet */
 static inline uint16_t get_length(struct list_packet *lp)
 {
 	return lp->packet.len;

@@ -87,7 +87,7 @@ void send_conn_info_to_message(struct conn_server *server)
 void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
-	uint16_t command = get_command_host(packet);
+	uint16_t command = get_command(packet);
 	/* TODO: need to enable login type check */
 	/*if (conn->type != LOGIN_OK_CONNECTION &&
 			command != CMD_LOGIN) {*/
@@ -136,7 +136,7 @@ void cmd_login(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	conn->type = LOGIN_UNCOMPLETE_CONNECTION;
-	conn->uin = get_uin_host(packet);
+	conn->uin = get_uin(packet);
 	/* NOTE: this is used for test */
 	struct uin_entry entry = {conn->uin, conn};
 	hset_insert(&server->uin_conn_map, &entry);
@@ -149,7 +149,7 @@ void cmd_logout(struct conn_server *server, struct connection *conn,
 	allocator_free(&server->packet_allocator, packet);
 
 	/* send status change command to status server */
-	send_offline_to_status(server, get_uin_host(packet));
+	send_offline_to_status(server, get_uin(packet));
 	close_connection(server, conn);
 }
 
@@ -183,7 +183,7 @@ void cmd_message(struct conn_server *server, struct connection *conn,
 /* backend server packet handler */
 void srv_packet_handler(struct conn_server *server, struct list_packet *packet)
 {
-	uint16_t command = get_command_host(packet);
+	uint16_t command = get_command(packet);
 	switch (command) {
 	case SRV_ERROR:
 		srv_error(server, packet);
@@ -208,7 +208,7 @@ void srv_packet_handler(struct conn_server *server, struct list_packet *packet)
 
 void srv_error(struct conn_server *server, struct list_packet *packet)
 {
-	uint32_t uin = get_uin_host(packet);
+	uint32_t uin = get_uin(packet);
 	struct connection *conn = get_conn_by_uin(server, uin);
 	if (!conn) {
 		allocator_free(&server->packet_allocator, packet);
@@ -224,7 +224,7 @@ void srv_error(struct conn_server *server, struct list_packet *packet)
  * and send the packet to client */
 void srv_login_ok(struct conn_server *server, struct list_packet *packet)
 {
-	uint32_t uin = get_uin_host(packet);
+	uint32_t uin = get_uin(packet);
 	struct connection *conn = get_conn_by_uin(server, uin);
 	if (!conn) {
 		allocator_free(&server->packet_allocator, packet);
@@ -240,7 +240,7 @@ void srv_login_ok(struct conn_server *server, struct list_packet *packet)
  * if login ok, send the packet to client */
 void srv_other_packet(struct conn_server *server, struct list_packet *packet)
 {
-	uint32_t uin = get_uin_host(packet);
+	uint32_t uin = get_uin(packet);
 	struct connection *conn = get_conn_by_uin(server, uin);
 	/* TODO: need to check login status */
 	if (!conn /*|| conn->type != LOGIN_OK_CONNECTION*/) {
