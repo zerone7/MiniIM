@@ -48,22 +48,15 @@ void close_connection(struct conn_server *server, struct connection *conn)
 /* send offline message to status server */
 void send_offline_to_status(struct conn_server *server, uint32_t uin)
 {
-	struct list_packet *packet = allocator_malloc(&server->packet_allocator);
-	packet_init(packet);
-	struct packet *p = &packet->packet;
-	/* TODO: need to change to network byte order */
-	p->len = (24);
-	p->ver = (0x01);
-	p->cmd = (CMD_STATUS_CHANGE);
-	p->uin = uin;
-	*((uint32_t *)((char *)p + 12)) = uin;
-	*((uint16_t *)((char *)p + 22)) = (STATUS_CHANGE_OFFLINE);
-	/*p->len = htons(18);
-	p->ver = htons(0x01);
-	p->cmd = htons(CMD_STATUS_CHANGE);
-	p->uin = htonl(uin);
-	*((uint16_t *)(p + 16)) = htons(STATUS_CHANGE_OFFLINE);*/
-	list_add_tail(&packet->list, &(server->status_conn.send_packet_list));
+	struct list_packet *lp = allocator_malloc(&server->packet_allocator);
+	packet_init(lp);
+	set_length(lp, 24);
+	set_command(lp, CMD_STATUS_CHANGE);
+	set_uin(lp, uin);
+	set_field_uint32_t(get_parameters(lp), 0, uin);
+	set_field_uint16_t(get_parameters(lp), 10,
+			STATUS_CHANGE_OFFLINE);
+	list_add_tail(&lp->list, &(server->status_conn.send_packet_list));
 	wait_for_write(server->efd, server->status_conn.sfd);
 }
 
@@ -73,12 +66,10 @@ void send_conn_info_to_message(struct conn_server *server)
 {
 	struct list_packet *lp = allocator_malloc(&server->packet_allocator);
 	packet_init(lp);
-	struct packet *p = &lp->packet;
-	p->len = 18;
-	p->ver = 0x01;
-	p->cmd = CMD_CONN_INFO;
-	*((uint32_t *)((char *)p + 12)) = server->conn_user_ip;
-	*((uint16_t *)((char *)p + 16)) = server->conn_user_port;
+	set_length(lp, 18);
+	set_command(lp, CMD_CONN_INFO);
+	set_field_uint32_t(get_parameters(lp), 0, server->conn_user_ip);
+	set_field_uint16_t(get_parameters(lp), 4, server->conn_user_port);
 	list_add_tail(&lp->list, &(server->message_conn.send_packet_list));
 	wait_for_write(server->efd, server->message_conn.sfd);
 }
