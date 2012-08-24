@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <signal.h>
 #include <termios.h>
 #include <errno.h>
@@ -15,9 +16,26 @@
 #define MAX_PASS_LEN		20
 #define CONN_SERVER_IP		"10.18.124.77"
 #define CONN_SERVER_PORT	34567
+#define TIMER_TICK_INTERVAL	60
 
 FILE *log_fp = NULL;
 FILE *dump_fp = NULL;
+
+/* send cmd keep alive if necessary */
+static inline void timer_expire_time(struct client_user *user)
+{
+	static time_t prev_time = 0;
+	if (!prev_time) {
+		prev_time = time(NULL);
+		return;
+	}
+
+	time_t current_time = time(NULL);
+	if (current_time - prev_time >= TIMER_TICK_INTERVAL) {
+		prev_time = current_time;
+		cmd_keep_alive(user);
+	}
+}
 
 static void get_nick(struct contact *contact_map, uint32_t uin, char *str)
 {
@@ -459,6 +477,9 @@ void select_loop(struct client_user *user)
 		} else if (user->mode == CHAT_MODE) {
 			ui_show_chat_message(user);
 		}
+
+		/* send keep alive packet if necessary */
+		timer_expire_time(user);
 	}
 }
 
