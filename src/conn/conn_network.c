@@ -529,8 +529,8 @@ int epoll_loop(struct conn_server *server)
 				log_warning("other event\n");
 			}
 		}
-		/* TODO: need to enable timer */
-		//timer_expire_time(server);
+		/* need to enable timer */
+		timer_expire_time(server);
 	}
 
 	free(events);

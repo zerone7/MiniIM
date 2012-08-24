@@ -90,13 +90,13 @@ void cmd_packet_handler(struct conn_server *server, struct connection *conn,
 		struct list_packet *packet)
 {
 	uint16_t command = get_command(packet);
-	/* TODO: need to enable login type check */
-	/*if (conn->type != LOGIN_OK_CONNECTION &&
-			command != CMD_LOGIN) {*/
+	/* check login status */
+	if (conn->type != LOGIN_OK_CONNECTION &&
+			command != CMD_LOGIN) {
 		/* the client not login, ignore this packet */
-		/*allocator_free(&server->packet_allocator, packet);
+		allocator_free(&server->packet_allocator, packet);
 		return;
-	}*/
+	}
 
 	switch (command) {
 	case CMD_KEEP_ALIVE:
@@ -247,8 +247,8 @@ void srv_other_packet(struct conn_server *server, struct list_packet *packet)
 {
 	uint32_t uin = get_uin(packet);
 	struct connection *conn = get_conn_by_uin(server, uin);
-	/* TODO: need to check login status */
-	if (!conn /*|| conn->type != LOGIN_OK_CONNECTION*/) {
+	/* need to check login status */
+	if (!conn || conn->type != LOGIN_OK_CONNECTION) {
 		allocator_free(&server->packet_allocator, packet);
 		return;
 	}
