@@ -46,9 +46,11 @@ static inline struct list_head* get_timeout_list(struct conn_timer *timer)
 static inline void timer_add(struct conn_timer *timer, struct connection *conn)
 {
 	assert(timer && conn);
+	int insert_index = (!timer->current) ? (timer->max_slots - 1) :
+		(timer->current - 1);
 	/* just insert on current list, because current is not going to
 	 * timeout in the next second, current + 1 is going to */
-	list_add_tail(&conn->timer_list, &timer->timer_slots[timer->current]);
+	list_add_tail(&conn->timer_list, &timer->timer_slots[insert_index]);
 }
 
 /* delete a connection from timer */
