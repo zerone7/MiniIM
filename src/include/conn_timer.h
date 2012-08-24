@@ -11,32 +11,44 @@
 /* timer structure used for client timeout */
 struct conn_timer {
 	struct list_head *timer_slots;
+	uint8_t prev;
 	uint8_t current;
 	uint8_t max_slots;
 };
 
 /* timer tick, simply increase current, call this once each second */
-static inline void timer_tick(struct conn_timer *timer)
+static inline void timer_tick(struct conn_timer *timer, uint8_t interval)
 {
-	assert(timer);
-	timer->current = (timer->current + 1) % timer->max_slots;
+	assert(timer && interval < timer->max_slots);
+	timer->prev = timer->current;
+	timer->current = (timer->current + interval) % timer->max_slots;
 }
 
 /* get current list head, they are timeouted */
 static inline struct list_head* get_timeout_list(struct conn_timer *timer)
 {
 	assert(timer && timer->current < timer->max_slots);
-	return &timer->timer_slots[timer->current];
+
+	int i, start = timer->prev + 1;
+	int end = (timer->prev < timer->current) ?
+		timer->current : (timer->current + timer->max_slots);
+	struct list_head *ret_head =
+		&timer->timer_slots[start++ % timer->max_slots];
+	for (i = start; i <= end; i++) {
+		list_splice_tail_init(&timer->timer_slots[i % timer->max_slots],
+				ret_head);
+	}
+
+	return ret_head;
 }
 
 /* add a connection to timer */
 static inline void timer_add(struct conn_timer *timer, struct connection *conn)
 {
 	assert(timer && conn);
-	int timeout_seconds = timer->current + timer->max_slots - 1;
-	int insert_index = timeout_seconds % timer->max_slots;
-	conn->timer_slot = (uint8_t)insert_index;
-	list_add_tail(&conn->timer_list, &timer->timer_slots[insert_index]);
+	/* just insert on current list, because current is not going to
+	 * timeout in the next second, current + 1 is going to */
+	list_add_tail(&conn->timer_list, &timer->timer_slots[timer->current]);
 }
 
 /* delete a connection from timer */
