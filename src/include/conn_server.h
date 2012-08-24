@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include <sys/epoll.h>
 #include "list.h"
-#include "conn_hash.h"
+#include "uthash.h"
 #include "conn_timer.h"
 #include "conn_allocator.h"
+#include "conn_connection.h"
 
 struct conn_server {
 	struct conn_timer timer;	/* timer struct */
@@ -17,9 +18,9 @@ struct conn_server {
 	struct connection contact_conn;
 	struct connection status_conn;
 	struct connection message_conn;
+	struct uin_entry *uin_conn_map;
+	struct fd_entry *fd_conn_map;
 	struct epoll_event *events;
-	hash_set_t uin_conn_map;
-	hash_set_t fd_conn_map;
 	uint32_t max_events;	/* max events we can monitor */
 	int sfd;		/* listen socket fd */
 	int efd;		/* epoll monitor fd */
@@ -48,18 +49,18 @@ static inline struct connection* get_conn_by_fd(struct conn_server *server,
 		return &server->message_conn;
 	}
 
-	iterator_t it;
-	hset_find(&server->fd_conn_map, &fd, &it);
-	return (it.ptr) ? ((struct fd_entry *)it.data)->conn : NULL;
+	struct fd_entry *fd_entry;
+	HASH_FIND_INT(server->fd_conn_map, &fd, fd_entry);
+	return fd_entry ? fd_entry->conn : NULL;
 }
 
 /* use uin to lookup conn, only return the _SAFE_ conn */
 static inline struct connection* get_conn_by_uin(struct conn_server *server,
 		uint32_t uin)
 {
-	iterator_t it;
-	hset_find(&server->uin_conn_map, &uin, &it);
-	return (it.ptr) ? ((struct uin_entry *)it.data)->conn : NULL;
+	struct uin_entry *uin_entry;
+	HASH_FIND_INT(server->uin_conn_map, &uin, uin_entry);
+	return uin_entry ? uin_entry->conn : NULL;
 }
 
 #endif

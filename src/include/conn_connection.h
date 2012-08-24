@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "list.h"
+#include "uthash.h"
 
 #define NOT_LOGIN_CONNECTION		1
 #define LOGIN_OK_CONNECTION		2
@@ -25,16 +26,18 @@ struct connection {
 	bool length_incomplete;
 };
 
-/* uin to *conn hash map entry */
+/* uin to conn ptr hash map entry */
 struct uin_entry {
 	uint32_t uin;
 	struct connection *conn;
+	UT_hash_handle hh;
 };
 
-/* socket fd to *conn hash map entry */
+/* socket fd to conn ptr hash map entry */
 struct fd_entry {
 	int fd;
 	struct connection *conn;
+	UT_hash_handle hh;
 };
 
 static inline void conn_init(struct connection *conn)

@@ -96,9 +96,13 @@ static int accept_handler(struct conn_server *server)
 		struct connection *conn = allocator_malloc(&server->conn_allocator);
 		conn_init(conn);
 		conn->sfd = infd;
-		struct fd_entry fd_conn = {infd, conn};
+
 		/* insert conn to fd_conn map */
-		hset_insert(&server->fd_conn_map, &fd_conn);
+		struct fd_entry *fd_entry = malloc(sizeof(struct fd_entry));
+		fd_entry->fd = infd;
+		fd_entry->conn = conn;
+		HASH_ADD_INT(server->fd_conn_map, fd, fd_entry);
+
 		/* insert conn to timer */
 		timer_add(&server->timer, conn);
 	}

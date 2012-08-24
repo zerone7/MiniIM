@@ -3,6 +3,7 @@
 #include "conn_server.h"
 #include "conn_log.h"
 #include "conn_network.h"
+#include "conn_connection.h"
 
 /* this function ONLY removes the packets, does not remove the timer */
 void conn_destroy(struct conn_server *server, struct connection *conn)
@@ -30,12 +31,22 @@ void conn_destroy(struct conn_server *server, struct connection *conn)
 void close_connection(struct conn_server *server, struct connection *conn)
 {
 	/* remove from fd-conn hash map */
-	int fd = conn->sfd;
-	close(fd);
-	hset_erase(&server->fd_conn_map, &fd);
+	close(conn->sfd);
+
+	struct fd_entry *fd_entry;
+	HASH_FIND_INT(server->fd_conn_map, &conn->sfd, fd_entry);
+	if (fd_entry) {
+		HASH_DEL(server->fd_conn_map, fd_entry);
+		free(fd_entry);
+	}
 
 	/* remove from uin-conn hash map */
-	hset_erase(&server->uin_conn_map, &conn->uin);
+	struct uin_entry *uin_entry;
+	HASH_FIND_INT(server->uin_conn_map, &conn->uin, uin_entry);
+	if (uin_entry) {
+		HASH_DEL(server->uin_conn_map, uin_entry);
+		free(uin_entry);
+	}
 
 	/* remove from timer */
 	timer_del(conn);
@@ -129,8 +140,11 @@ void cmd_login(struct conn_server *server, struct connection *conn,
 	conn->type = LOGIN_UNCOMPLETE_CONNECTION;
 	conn->uin = get_uin(packet);
 	/* NOTE: this is used for test */
-	struct uin_entry entry = {conn->uin, conn};
-	hset_insert(&server->uin_conn_map, &entry);
+	struct uin_entry *uin_entry = malloc(sizeof(struct uin_entry));
+	uin_entry->uin = conn->uin;
+	uin_entry->conn = conn;
+	HASH_ADD_INT(server->uin_conn_map, uin, uin_entry);
+
 	cmd_user(server, conn, packet);
 }
 
