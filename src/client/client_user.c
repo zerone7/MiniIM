@@ -190,12 +190,21 @@ static struct list_packet* create_packet(uint32_t uin,
 	return lp;
 }
 
-/* debug information when sending packet */
-static inline void send_packet_debug(struct list_packet *lp)
+/* send packet to server */
+static inline int send_packet(struct client_user *user, struct list_packet *lp)
 {
+	int length = get_length(lp);
+	if (length != send(user->socket, &lp->packet, length, 0)) {
+		log_err("send packet cmd 0x%04hx failed\n", get_command(lp));
+		return -1;
+	}
+
 	log_debug("send packet len %hu, cmd 0x%04hx, uin %u,  to server\n",
 			get_length(lp), get_command(lp), get_uin(lp));
 	dump_packet(lp, SEND_PACKET, "server");
+
+	free(lp);
+	return 0;
 }
 
 /* send keep alive packet to server */
@@ -204,13 +213,7 @@ int cmd_keep_alive(struct client_user *user)
 	uint16_t length = PACKET_HEADER_LEN;
 	struct list_packet *lp =
 		create_packet(user->uin, length, CMD_KEEP_ALIVE);
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send keep alive packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send login packet to server */
@@ -226,13 +229,8 @@ int cmd_login(struct client_user *user,
 
 	user->uin = uin;
 	user->mode = LOGIN_MODE;
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send login packet failed\n");
-		return -1;
-	}
 
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send logout packet to server */
@@ -246,8 +244,7 @@ int cmd_logout(struct client_user *user)
 		return -1;
 	}
 
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send set nick packet to server */
@@ -260,13 +257,7 @@ int cmd_set_nick(struct client_user *user, const char *nick)
 	struct list_packet *lp = create_packet(user->uin, length, CMD_SET_NICK);
 	csn_set_nick(lp, nick, nick_len);
 
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send set nick packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send add contact packet to server */
@@ -277,13 +268,7 @@ int cmd_add_contact(struct client_user *user, uint32_t to_uin)
 		create_packet(user->uin, length, CMD_ADD_CONTACT);
 	cac_set_uin(lp, to_uin);
 
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send add contact packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send add contact reply to server */
@@ -296,13 +281,7 @@ int cmd_add_contact_reply(struct client_user *user,
 	cacr_set_to_uin(lp, to_uin);
 	cacr_set_reply_type(lp, reply_type);
 
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send add contact reply packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send contact list packet to server */
@@ -312,13 +291,7 @@ int cmd_contact_list(struct client_user *user)
 	struct list_packet *lp =
 		create_packet(user->uin, length, CMD_CONTACT_LIST);
 
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send contact list packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send contact info multi packet to server */
@@ -331,13 +304,7 @@ int cmd_contact_info_multi(struct client_user *user,
 		create_packet(user->uin, length, CMD_CONTACT_INFO_MULTI);
 	ccim_set_uins(lp, uins, count);
 
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send contact info multi packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send message packet to server */
@@ -352,13 +319,7 @@ int cmd_message(struct client_user *user,
 	cm_set_to_uin(lp, to_uin);
 	cm_set_message(lp, message, msg_len);
 
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send message packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 /* send offline msg packet to server */
@@ -367,13 +328,7 @@ int cmd_offline_msg(struct client_user *user)
 	uint16_t length = PACKET_HEADER_LEN;
 	struct list_packet *lp =
 		create_packet(user->uin, length, CMD_OFFLINE_MSG);
-	if (length != send(user->socket, &lp->packet, length, 0)) {
-		log_err("send login packet failed\n");
-		return -1;
-	}
-
-	send_packet_debug(lp);
-	return 0;
+	return send_packet(user, lp);
 }
 
 static uint16_t get_wait_cmd(uint16_t send_cmd)
