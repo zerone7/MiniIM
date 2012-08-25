@@ -6,6 +6,7 @@
 #include "list.h"
 #include "protocol.h"
 #include "uthash.h"
+#include "list_packet.h"
 
 #define LOGIN_INCOMPLETE	1
 #define LOGIN_OK		2
@@ -87,6 +88,19 @@ static inline void packet_reader_init(struct packet_reader *pr)
 	pr->length_incomplete = false;
 }
 
+static inline void packet_reader_destory(struct packet_reader *pr)
+{
+	struct list_packet *current, *tmp;
+	list_for_each_entry_safe(current, tmp, &pr->recv_packet_list, list) {
+		list_del(&current->list);
+		free(current);
+	}
+
+	if (pr->lp) {
+		free(pr->lp);
+	}
+}
+
 static inline struct list_head* get_recv_list(struct client_user *user)
 {
 	return (user) ? &(user->reader.recv_packet_list) : NULL;
@@ -103,6 +117,7 @@ static inline struct list_head* get_msg_list(struct client_user *user)
 }
 
 void client_user_init(struct client_user *user);
+void client_user_destroy(struct client_user *user);
 int cmd_keep_alive(struct client_user *user);
 int cmd_login(struct client_user *user,
 		uint32_t uin, const char *password);

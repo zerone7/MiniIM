@@ -175,6 +175,46 @@ void client_user_init(struct client_user *user)
 	user->mode = LOGIN_MODE;
 }
 
+void client_user_destroy(struct client_user *user)
+{
+	cmd_logout(user);
+	close(user->socket);
+	packet_reader_destory(&user->reader);
+
+	/* free all waiting packets */
+	struct list_packet *current, *tmp;
+	list_for_each_entry_safe(current, tmp, get_wait_list(user), list) {
+		list_del(&current->list);
+		free(current);
+	}
+
+	/* free all msg packets */
+	list_for_each_entry_safe(current, tmp, get_msg_list(user), list) {
+		list_del(&current->list);
+		free(current);
+	}
+
+	/* free all messages */
+	struct message_map *msg_map, *msg_map_tmp;
+	HASH_ITER(hh, user->msg_map, msg_map, msg_map_tmp) {
+		struct message *msg, *tmp_msg;
+		list_for_each_entry_safe(msg, tmp_msg, &msg_map->head, list) {
+			list_del(&msg->list);
+			message_destory(msg);
+		}
+
+		HASH_DEL(user->msg_map, msg_map);
+		free(msg_map);
+	}
+
+	/* free all contacts */
+	struct contact *contact, *contact_tmp;
+	HASH_ITER(hh, user->contact_map, contact, contact_tmp) {
+		HASH_DEL(user->contact_map, contact);
+		free(contact);
+	}
+}
+
 /* malloc a list_packet struct, init header field */
 static struct list_packet* create_packet(uint32_t uin,
 		uint16_t length, uint16_t command)
@@ -182,6 +222,7 @@ static struct list_packet* create_packet(uint32_t uin,
 	int lp_length = sizeof(struct list_packet) +
 		length - PACKET_HEADER_LEN;
 	struct list_packet *lp = malloc(lp_length);
+	memset(lp, 0, lp_length);
 	INIT_LIST_HEAD(&lp->list);
 	set_length(lp, length);
 	set_version(lp, PROTOCOL_VERSION);
@@ -642,6 +683,8 @@ int get_contacts(struct client_user *user)
 		}
 	}
 
+	/* free the uins array at last */
+	free(uins);
 	return 0;
 }
 

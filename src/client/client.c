@@ -238,7 +238,10 @@ static int ui_show_usage_no_msg(struct client_user *user)
 
 static int ui_quit_program(struct client_user *user)
 {
-	/* TODO: need to release the resource */
+	/* release the resource */
+	client_user_destroy(user);
+	DUMP_DESTROY();
+	LOG_DESTROY();
 	exit(0);
 }
 
@@ -559,7 +562,5 @@ int main(int argc, char *argv[])
 	user.mode = COMMAND_MODE;
 	select_loop(&user);
 
-	DUMP_DESTROY();
-	LOG_DESTROY();
 	return 0;
 }
