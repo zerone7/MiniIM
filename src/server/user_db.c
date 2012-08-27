@@ -30,10 +30,12 @@ void user_db_close()
 }
 
 /* add a user to database */
-int user_add(char *nick, char *passwd)
+int user_add(char *nick, unsigned char *passwd)
 {
-    int uin;
-    char query_str[100];
+    int uin, i;
+    char query_str[200];
+    char mdstr[33] = {'\0'};
+    char tmp[3] = {'\0'};
 
     assert(nick && passwd);
     sprintf(query_str,"select max(uin) from user"); 
@@ -54,9 +56,13 @@ int user_add(char *nick, char *passwd)
         return -1;
     }
     
+    for (i = 0; i < 16; i++) {
+        sprintf(tmp, "%02x", passwd[i]);
+        strcat(mdstr, tmp);
+    }
     uin += 1;
-    sprintf(query_str,"insert into user set uin=%d,nick='%s',password='%s',contact_count=0",\
-            uin, nick, passwd); 
+    sprintf(query_str,"insert into user set uin=%d,nick='%s',password=0x%s,contact_count=0",\
+            uin, nick, mdstr); 
     if (!mysql_query(&mysql, query_str)) {
         printf("Inserted %lu rows\n", (unsigned long)mysql_affected_rows(&mysql));
     } else {
@@ -72,7 +78,7 @@ int user_add(char *nick, char *passwd)
  * @uin: user uin
  * @passwd: user's password
  */
-int  user_get_passwd(int uin , char *passwd)
+int  user_get_passwd(int uin , unsigned char *passwd)
 {
     int ret;
     char query_str[100];
@@ -105,7 +111,7 @@ int  user_get_passwd(int uin , char *passwd)
 }
 
 /* set user password */
-int  user_set_passwd(int uin , char *passwd)
+int  user_set_passwd(int uin , unsigned char *passwd)
 {
     int ret;
     char query_str[100];

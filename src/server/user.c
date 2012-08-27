@@ -1,3 +1,5 @@
+#include <openssl/md5.h>
+
 #include "user.h"
 #include "user_db.h"
 
@@ -143,20 +145,36 @@ int user_conn_init()
 }
 
 /* check uin and password */
-int passwd_verify(int uin, char *passwd)
+int passwd_verify(int uin, unsigned char *passwd, int passlen)
 {
+    unsigned char pass_hash[16];
     unsigned char user_pass[16];
-    //unsigned char pass_hash[16];
     
-    //MD5(passwd, strlen(passwd), pass_hash);
+    MD5(passwd, passlen, pass_hash);
     if(user_get_passwd(uin, user_pass) < 1)
     {
         user_err("get_pass word error\n");
         return -1;
     }
 
-    //if (memcmp(pass_hash, password)) {
-    if (strcmp(passwd, user_pass)) {
+    /* to be removed */
+    char buf[33] = {'\0'};
+    char tmp[3] = {'\0'};
+    int i;
+    for (i = 0; i < 16; i++) {
+        sprintf(tmp, "%02x", pass_hash[i]);
+        strcat(buf, tmp); 
+    }
+    user_dbg("password md5 %s\n", buf);
+    buf[0] = '\0';
+    for (i = 0; i < 16; i++) {
+        sprintf(tmp, "%02x", user_pass[i]);
+        strcat(buf, tmp); 
+    }
+    user_dbg("database md5 %s\n", buf);
+
+    if (memcmp(pass_hash, user_pass, 16)) {
+    //if (strcmp(passwd, user_pass)) {
         user_dbg("user[%d] password: '%s' is wrong\n", uin, passwd);
         return -1;
     }
@@ -193,6 +211,7 @@ int request_status_change(int uin, int sockfd, uint16_t stat)
 int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
 {
     char  *pnick, *password;
+    unsigned char pass_hash[16];
     uint16_t len;
 
     assert(inpack && outpack);
@@ -201,8 +220,10 @@ int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
     case CMD_LOGIN: //user login
         password = PARAM_PASSWD(inpack);
         password[*PARAM_PASSLEN(inpack)] = '\0';
-        user_dbg("UIN %d, PSSWD: %s\n", inpack->uin, password);
-        if(passwd_verify(inpack->uin, PARAM_PASSWD(inpack)))
+        user_dbg("UIN %d, PSSWD: %s, PASSLEN %d\n", inpack->uin, password, \
+                *PARAM_PASSLEN(inpack));
+        if(passwd_verify(inpack->uin, (unsigned char *)password, \
+                    *PARAM_PASSLEN(inpack)))
             send_error_packet(inpack->uin, CMD_LOGIN, 1, sockfd);
         else {
             /*login ok, change status */
@@ -237,7 +258,8 @@ int user_packet(struct packet *inpack, struct packet *outpack, int sockfd)
         len = *(uint16_t *)(inpack->params + 2 + *PARAM_NICKLEN(inpack));
         password = (char *)(inpack->params + 4 + *PARAM_NICKLEN(inpack));
         password[len] = '\0';
-        inpack->uin = user_add(pnick, password);
+        MD5((unsigned char *)password, len, pass_hash);
+        inpack->uin = user_add(pnick, pass_hash);
         if (inpack->uin <= 0) {
             user_err("user register error\n");
             return -1;

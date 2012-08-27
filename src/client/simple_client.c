@@ -75,7 +75,7 @@ int connect_to(int module)
         perror("socket");
         return -1;
     }
-    if(module == USER)
+/*    if(module == USER)
     {
         struct sockaddr_in uaddr;
         memset(&uaddr, 0, sizeof(addr));
@@ -88,7 +88,7 @@ int connect_to(int module)
             return -1;
         }
     }
-
+*/
     if(connect(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0)
     {
         perror("connect");
@@ -113,9 +113,9 @@ void user_test()
     addpack = (struct packet *)malloc(BUFSIZE);
     packet = (struct packet *)malloc(BUFSIZE);
 
-    sprintf(PARAM_PASSWD(loginpack), "10010");
-    *PARAM_PASSLEN(loginpack) = 5;
-    loginpack->len = HEADER_LEN + 5 + 2;
+    sprintf(PARAM_PASSWD(loginpack), "kyleluo");
+    *PARAM_PASSLEN(loginpack) = 7;
+    loginpack->len = HEADER_LEN + 7 + 2;
     loginpack->ver = 1;
     loginpack->cmd = 0x0101;
     loginpack->uin = 10010;
@@ -136,7 +136,7 @@ void user_test()
         pcmd = strtok(cmd, " ");
         if(!strcmp(pcmd, "login\n")) // correclt loging packet
         {
-            loginpack->uin = 10010;
+            loginpack->uin = 17784;
 		    send(client_sockfd, loginpack, loginpack->len, 0);
             n = recv(client_sockfd, recvpack, BUFSIZE, 0);
             printf("receive %d bytes\n", n);
