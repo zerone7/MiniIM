@@ -35,7 +35,7 @@ modules: $(USEROBJ) $(STATOBJ) $(FRDOBJ) $(MSGOBJ)
 	$(CC) -o $(MESSAGE) $(MSGOBJ) $(LIBS)
 
 clean:
-	-rm *.o server
+	-rm *.o server status.data
 
 mclean:
-	-rm *.o $(USER) $(STATUS) $(FRIEND) $(MESSAGE)
+	-rm *.o $(USER) $(STATUS) $(FRIEND) $(MESSAGE) status.data

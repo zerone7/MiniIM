@@ -4,9 +4,10 @@
 #define MAX_ONLINE_USER 1000
 #define MAX_EVENTS      10
 #define ACCEPT          5
+#define STAT_FILE       "status.data"
 
 static int listen_fd, epfd; //file descriptor
-static struct status_info  *cache, *map[MAX_USER+1]; //status cache
+static struct status_info  *cache, **map; //status cache
 static struct list_head    free_list_head; //free list 
 
 /* recycle the user status cache, put it in free list */
@@ -145,14 +146,33 @@ int status_conn_init()
 /* init status cache list */
 int status_list_init()
 {
-    int i;
+    int i, cache_size, map_size, fd, init = 0;
+    char *mapmem;
 
-    cache = (struct status_info *)malloc(MAX_ONLINE_USER * sizeof(struct status_info));
-    if (!cache) {
-        stat_err("malloc for cache error\n");
+    cache_size = MAX_ONLINE_USER * sizeof(struct status_info);
+    map_size = (MAX_USER + 1) * sizeof(void *);
+
+    /* check whether file exist, if not, create one and set init = 1 */
+    if (access(STAT_FILE, 0) < 0) {
+        fd = open(STAT_FILE, O_CREAT | O_RDWR | O_TRUNC, 0666);
+        lseek(fd, cache_size + map_size - 1, SEEK_SET);
+        write(fd, "", 1);
+        init = 1;
+    } else
+        fd = open(STAT_FILE, O_RDWR, 0666);
+
+    mapmem = mmap(NULL, cache_size + map_size, PROT_READ | PROT_WRITE, \
+            MAP_SHARED, fd, 0);
+    if (mapmem == MAP_FAILED) {
+        stat_err("mmap failed\n");
         return -1;
     }
-    memset(cache, 0, sizeof(struct status_info) * MAX_ONLINE_USER);
+    map = (struct status_info **)mapmem;
+    cache = (struct status_info*)(mapmem + map_size);
+    close(fd);
+
+    if (init)
+        memset(mapmem, 0, map_size + cache_size);
 
     INIT_LIST_HEAD(&free_list_head);
     for (i = 0; i < MAX_ONLINE_USER; i++)
